@@ -20,6 +20,7 @@ local options = {
 						type = "input",
 						name = "New Monster",
 						desc = "Add a new trackable monster ID",
+						pattern = "(%d+)",
 						set = function(k,v)
 							GetErDone:AddMonster(v)
 						end
@@ -34,6 +35,7 @@ local options = {
 						type = "input",
 						name = "New Quest",
 						desc = "Add a new trackable quest flag ID",
+						pattern = "(%d+)",
 						set = function(k,v)
 							GetErDone:AddQuest(v)
 						end
