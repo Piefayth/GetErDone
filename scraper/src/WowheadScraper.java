@@ -1,6 +1,5 @@
-import org.json.simple.JSONArray;
-import org.json.simple.JSONObject;
-import org.json.simple.JSONValue;
+import org.apache.commons.lang.NumberUtils;
+import org.apache.commons.lang.StringUtils;
 import org.jsoup.Connection;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -8,6 +7,7 @@ import org.jsoup.nodes.Document;
 import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.InputStreamReader;
+import java.io.PrintWriter;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -29,14 +29,16 @@ public class WowheadScraper {
     }
 
     public void scrape(String dataFile) throws Exception {
-        JSONObject db = getDb(dataFile);
         List<Callable<Pair>> callables = new ArrayList<>();
 
-        for (Object charName : db.values()) {
-            for (Object itemType : (JSONArray) charName) {
-                for (Object wowIdObj : ((JSONObject) itemType).values()) {
-                    String wowId = (String) wowIdObj;
-                    callables.add(() -> scrapeName(wowId));
+        List<String> jsonny = splitStrings(dataFile);
+        for (int i = 0; i < jsonny.size(); i++) {
+            final int iCopy = i;
+            String s = jsonny.get(i);
+            if (s.length() > 3) {
+                String noQuotes = s.substring(1, s.length() - 2);
+                if (NumberUtils.isNumber(noQuotes)) {
+                    callables.add(() -> scrapeName(iCopy, noQuotes));
                 }
             }
         }
@@ -48,20 +50,25 @@ public class WowheadScraper {
             realResults.add(f.get());
         }
 
-        realResults.forEach(System.out::println);
+        realResults.forEach(p -> jsonny.set(p.lhs, "\"" + p.rhs + "\""));
+        String json = StringUtils.join(jsonny, "");
+        PrintWriter out = new PrintWriter(dataFile);
+        out.write(json);
+        out.close();
+        System.exit(1);
     }
 
-    private Pair scrapeName(String id) {
+    private Pair scrapeName(int i, String id) {
         final String wowheadUrl = "http://www.wowhead.com/";
         final List<String> wowheadTypes = Arrays.asList("item", "npc", "spell", "quest");
 
         for (String type : wowheadTypes) {
             String scraped = scrapePage(wowheadUrl + type + "=" + id);
             if (scraped != null) {
-                return new Pair(id, scraped);
+                return new Pair(i, id + ":" + scraped);
             }
         }
-        return new Pair(id, "");
+        return new Pair(i, id + ":");
     }
 
     private String scrapePage(String url) {
@@ -107,32 +114,33 @@ public class WowheadScraper {
 
     }
 
-    private JSONObject getDb(String dataFile) {
+    private List<String> splitStrings(String dataFile) {
         try (BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(dataFile)))) {
             List<String> lines = br.lines().collect(Collectors.toList());
             StringBuilder sb = new StringBuilder();
             for (String s : lines) {
                 sb.append(s);
             }
-            return (JSONObject) JSONValue.parse(sb.toString().replace("\t", "").replace("\n", ""));
+            return Arrays.asList(sb.toString().split("(?=[\\\n\\\t\\[\\]\\\"\\{\\},])(?:)(?<=[\\\n\\\t\\[\\]\\\"\\{\\},])"));
         } catch (Exception e) {
             return null;
         }
+
     }
 
 
     private final class Pair {
-        public final String lhs;
+        public final int lhs;
         public final String rhs;
 
-        public Pair(String a, String b) {
+        public Pair(int a, String b) {
             lhs = a;
             rhs = b;
         }
 
         @Override
         public String toString() {
-            return lhs + " " + rhs;
+            return String.valueOf(lhs) + " " + rhs;
         }
     }
 }
