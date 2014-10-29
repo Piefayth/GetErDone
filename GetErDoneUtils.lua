@@ -1,4 +1,4 @@
-function nextReset(frequency, region)
+function GetErDone:nextReset(frequency, region)
   currentDate = os.date("!*t")
   --currentDate = {["wday"] = 4, ["day"] = 1, ["month"] = 11, ["year"] = 2014, ["hour"] = 12}
   monthdays = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31}
@@ -35,7 +35,7 @@ function nextReset(frequency, region)
   return os.time(resetDate)
 end
 
-function addDays(resetDate, currentDate, days)
+function GetErDone:addDays(resetDate, currentDate, days)
   monthdays = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31}
   DECEMBER = 12
   JANUARY = 1
@@ -61,6 +61,3 @@ function addDays(resetDate, currentDate, days)
   return resetDate
 end
 
-for i,v in pairs(nextReset("monthly", "EU")) do
-  print(i .. " " .. v)
-end

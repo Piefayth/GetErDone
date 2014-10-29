@@ -137,7 +137,7 @@ end
 
 function GetErDone:OnInitialize()
 	AceConfig:RegisterOptionsTable("GetErDone", options, {"ged", "geterdone"}) --TODO: Make these slash commands just open the menu
-	self.db = LibStub("AceDB-3.0"):New("GetErDoneDB")
+	self.db = LibStub("AceDB-3.0"):New("GetErDoneDb")
 
 
 	
@@ -151,36 +151,77 @@ function GetErDone:OnInitialize()
 end
 
 function GetErDone:OnEnable()
+<<<<<<< HEAD
 	print("hi")
-
+>>>>>>> 8224630904148974520d9e6a9b8273c2622b8326
 	---First Time Setup l---
 	if self.db.global.trackables == nil then self.db.global.trackables = {} end
 	if self.db.global.trackables.monsters == nil then self.db.global.trackables.monsters = {} end
 	if self.db.global.trackables.quests == nil then self.db.global.trackables.quests = {} end
 	if self.db.global.frequency == nil then self.db.global.frequency = "" end
 	if self.db.global.characters == nil then self.db.global.characters = {} end
+
+	table.insert(self.db.global.trackables.monsters, "58448", {
+				["name"] = "DEBUG GOAT",
+				["characters"] = {
+					{"Ihs", "Draenor"},
+				},
+				["reset"] = "20141029",
+				["frequency"] = "1",
+				["item"] = "1111",
+			})
+
 	name, server = UnitFullName("player")
 	if self.db.global.characters[name..server] == nil then 
 		self.db.global.characters[name..server] = name .. " - " .. server
 	end
 	---
+<<<<<<< HEAD
+=======
+
+	for i, v in ipairs(self.db.global.trackables.monsters) do
+		if v["monsterid"] ~= nil then
+			print("Index: " .. i .. " Monster ID: " .. v.monsterid)
+		end
+	end
+	for i, v in ipairs(self.db.global.trackables.quests) do
+		if v["questid"] ~= nil then
+			print("Index: " .. i .. " Quest ID: " .. v.questid)
+		end
+	end
+	for k, v in pairs(self.db.global.characters) do --Have to use pairs over ipairs for non numerical indices, afaik
+		print(k .. v)
+	end
+
+	self:registerHandlers()
+
+>>>>>>> 8224630904148974520d9e6a9b8273c2622b8326
 end
 
 function GetErDone:checkEvent(type, guid)
 	if type == MONSTER then
 		local npcId = self:getNpcId(guid)
+<<<<<<< HEAD
 		local dbNpcId = self.db.global.monsters[npcId]
+=======
+		print(npcId)
+		local dbNpcId = self.db.global.trackables.monsters[npcId]
+		print(dbNpcId)
+>>>>>>> 8224630904148974520d9e6a9b8273c2622b8326
 		if dbNpcId ~= nil then
-			self:Debug("Setting " .. npcId .. " to completed.")
+			print("Setting " .. npcId .. " to completed.")
 			self:setCompleted(dbNpcId)
 		end
 		return
 	end
 end
 
+function GetErDone:setCompleted(id)
+	print("my dad fucks me")
+end
 
 -- sorry rarity guy
-function GetErDone:GetNpcId(guid)
+function GetErDone:getNpcId(guid)
 	if guid then
 		local unit_type, _, _, _, _, mob_id = strsplit('-', guid)
 		return (guid and mob_id and tonumber(mob_id)) or 0
@@ -190,9 +231,9 @@ end
 
 function GetErDone:registerHandlers()
 	for type, eventObj in pairs(events) do
-		for eventy in eventObj do
-			self:Debug(eventy.callback .. " registered for event " .. eventy.event)
-			AceEvent:RegisterEvent(eventy.event, eventy.callback, eventy.event)
+		for k, eventy in pairs(eventObj) do
+			print(eventy.callback .. " registered for event " .. eventy.event)
+			self:RegisterEvent(eventy.event, eventy.callback, eventy.event)
 		end
 	end
 end
@@ -205,7 +246,11 @@ function GetErDone:handleEventMonster(event)
 			mobList = { GetLootSourceInfo(slotId) }
 			for k, v in pairs(mobList) do
 				if v and type(v) == "string" then
+<<<<<<< HEAD
 					self:Debug("Checking mob id " .. v)
+=======
+					print("Checking mob id " .. v)
+>>>>>>> 8224630904148974520d9e6a9b8273c2622b8326
 					self:checkEvent(MONSTER, v)
 				end
 			end
@@ -220,11 +265,16 @@ end
 function GetErDone:updateResets()
 	for k, v in pairs(getAllTrackables) do
 		v.reset = self:nextReset(v.reset, v.frequency)
+<<<<<<< HEAD
 		self:Debug("Updated " .. k .. " reset to " .. v.reset)
+=======
+		print("Updated " .. k .. " reset to " .. v.reset)
+>>>>>>> 8224630904148974520d9e6a9b8273c2622b8326
 	end
 end
 
 function GetErDone:getAllTrackables()
+<<<<<<< HEAD
 	t = {}
 	for group, groups in pairs(self.db.global.trackables) do
 		if group ~= "compound" then
@@ -234,6 +284,17 @@ function GetErDone:getAllTrackables()
 		end
 	end
 	return t
+=======
+	tracks = {}
+	for group, groups in pairs(self.db.global.trackables) do
+		if not group == "compound" then
+			for id, value in pairs(groups) do
+				tracks.insert(id, value)
+			end
+		end
+	end
+	return tracks
+>>>>>>> 8224630904148974520d9e6a9b8273c2622b8326
 end
 
 function GetErDone:OnDisable()
@@ -244,6 +305,7 @@ end
 ---OnLogin defaults the "character" dropdown to the character you're currently logged in as.
 function GetErDone:OnLogin()
 	name, server = UnitFullName("player")
+	print("i'm really gay")
 	self.db.global.character = name..server
 	self.trackables = self:getAllTrackables()
 end
