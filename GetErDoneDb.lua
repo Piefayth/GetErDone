@@ -4,10 +4,10 @@ GetErDoneDb = {
 	},
 	["trackables"] = {
 		["monsters"] = {
-			["123456"] = {
+			["58448"] = {
+				["name"] = "DEBUG GOAT",
 				["characters"] = {
-					{"buttlord", "draenor"},
-					{"smegma", "draenor"}
+					{"Ihs", "Draenor"},
 				},
 				["repeat"] = "20141029",
 				["frequency"] = "1",
@@ -40,5 +40,8 @@ GetErDoneDb = {
 				},
 			},
 		}
-	}
+	},
+	["tracked"] = {
+
+	},
 }

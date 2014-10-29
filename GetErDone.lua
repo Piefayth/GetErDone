@@ -15,6 +15,8 @@ local events = 	{
 			  	}
 			 }
 
+local trackables = {}
+
 local options = {
 	name = "Get Er Done",
 	type = 'group',
@@ -95,6 +97,9 @@ local options = {
 		},
 	}
 
+local MONSTER = 0
+local QUEST = 1
+
 --ApplyOption is for option retention between sessions. If you click "Daily" then reloadui, it retains that selection--
 --The default behavior makes dropdowns always blank, which is annoying--
 function GetErDone:ApplyOption(k,v)
@@ -168,25 +173,61 @@ function GetErDone:OnEnable()
 
 end
 
+function GetErDone:checkEvent(type, guid)
+	if type == MONSTER then
+		local npcId = self:getNpcId(guid)
+		local dbNpcId self.db.global.monsters[npcId]
+		if dbNpcId ~= nil then
+			self:Debug("Setting " .. npcId .. " to completed.")
+			self:setCompleted(dbNpcId)
+		end
+		return
+	end
+end
+
+
+-- sorry rarity guy
+function GetErDone:GetNpcId(guid)
+	if guid then
+		local unit_type, _, _, _, _, mob_id = strsplit('-', guid)
+		return (guid and mob_id and tonumber(mob_id)) or 0
+	end
+	return 0
+end
+
 function GerErDone:registerHandlers()
 	for type, eventObj in pairs(events) do
 		for eventy in eventObj do
-			AceEvent:RegisterEvent(eventy.event, eventy.callback)
+			self:Debug(eventy.callback .. " registered for event " .. eventy.event)
+			AceEvent:RegisterEvent(eventy.event, eventy.callback, eventy.event)
 		end
 	end
 end
 
-function GetErDone:handleEventMonster() 
-	-- TODO
+function GetErDone:handleEventMonster(event) 
+	if event == "LOOT_OPENED" then
+		local numChecked = 0
+		local numItems = GetNumLootItems()
+		for slotId = 1, numItems, 1 do
+			mobList = { GetLootSourceInfo(slotId) }
+			for k, v in pairs(mobList) do
+				if v and type(v) = "string" then
+					self:Debug("Checking mob id " .. v)
+					self:checkEvent(MONSTER, v)
+				end
+			end
+		end
+	end
 end
 
-function GetErDone:handleEventQuest()
+function GetErDone:handleEventQuest(event)
 	-- TODO
 end
 
 function GetErDone:updateResets()
 	for k, v in pairs(getAllTrackables) do
-		v.repeat = GetErDoneUtils:nextReset(v.repeat, v.frequency)
+		v.repeat = self:nextReset(v.repeat, v.frequency)
+		self:Debug("Updated " .. k .. " reset to " .. v.repeat)
 	end
 end
 
@@ -211,5 +252,69 @@ end
 function GetErDone:OnLogin()
 	name, server = UnitFullName("player")
 	self.db.global.character = name..server
+	self.trackables = self:getAllTrackables()
+end
+
+function GetErDone:nextReset(frequency, region)
+  currentDate = os.date("!*t")
+  --currentDate = {["wday"] = 4, ["day"] = 1, ["month"] = 11, ["year"] = 2014, ["hour"] = 12}
+  monthdays = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31}
+  if currentDate["year"] % 4 == 0 then monthdays[2] = 29 end
+
+  resetDate = {["year"] = "", ["day"] = "", ["month"] = "", ["hour"] = ""}
+
+  regionDayMap = {["US"] = {["day"] = 3, ["hour"] = 11},
+  				  ["EU"] = {["day"] = 4, ["hour"] = 2},
+  				  ["AU"] = {["day"] = 2, ["hour"] = 17}}
+
+  daysRemaining = 0
+  regionalResetHour = regionDayMap[region].hour
+  if frequency == "weekly" then
+  	regionalResetDay = regionDayMap[region].day
+    if currentDate["wday"] > regionalResetDay then --If it's after the resetDate day
+      daysRemaining = regionalResetDay + 7 - currentDate["wday"]
+    elseif currentDate["wday"] < regionalResetDay then
+      daysRemaining = regionalResetDay - currentDate["wday"] --If it's Sunday or Monday
+    elseif currentDate["wday"] == regionalResetDay then -- If it's Tuesday
+      if currentDate["hour"] < regionalResetHour then daysRemaining = 0 end
+      if currentDate["hour"] >= regionalResetHour then daysRemaining = 7 end
+    end
+    resetDate = addDays(resetDate, currentDate, daysRemaining)
+  elseif frequency == "daily" then
+    resetDate = addDays(resetDate, currentDate, 1)
+  elseif frequency == "monthly" then
+    daysRemaining = monthdays[currentDate["month"]] - currentDate["day"] + 1
+    resetDate = addDays(resetDate, currentDate, daysRemaining)
+  else
+    return nil
+  end
+  resetDate["hour"] = regionalResetHour
+  return os.time(resetDate)
+end
+
+function GetErDone:addDays(resetDate, currentDate, days)
+  monthdays = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31}
+  DECEMBER = 12
+  JANUARY = 1
+  -- leap years
+  if currentDate["year"] % 4 == 0 then monthdays[2] = 29 end
+
+  -- if we need to go to next month
+  if days + currentDate["day"] > monthdays[currentDate["month"]] then
+    if currentDate["month"] == DECEMBER then 
+      resetDate["day"] =  (currentDate["day"] + days) - monthdays[currentDate["month"]]
+      resetDate["month"] = JANUARY
+      resetDate["year"] = currentDate["year"] + 1
+    else
+      resetDate["day"] =  (currentDate["day"] + days) - monthdays[currentDate["month"]]
+      resetDate["month"] = currentDate["month"] + 1
+      resetDate["year"] = currentDate["year"]
+    end
+  else
+    resetDate["day"] = currentDate["day"] + days
+    resetDate["month"] = currentDate["month"]
+    resetDate["year"] = currentDate["year"]
+  end
+  return resetDate
 end
 
