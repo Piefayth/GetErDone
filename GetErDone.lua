@@ -193,8 +193,13 @@ function GetErDone:checkEvent(type, guid)
 		local dbNpcId = self.db.global.trackables.monsters[npcId]
 		print(dbNpcId)
 		if dbNpcId ~= nil then
-			print("Setting " .. npcId .. " to completed.")
-			self:setCompleted(dbNpcId)
+			for k, character in pairs(dbNpcId.characters) do
+				if character[1] .. character[2] == self.db.global.character then
+					print("Setting " .. npcId .. " to completed.")
+					self:setCompleted(dbNpcId)
+					return
+				end
+			end
 		end
 		return
 	end
