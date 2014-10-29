@@ -9,7 +9,7 @@ local events = 	{
 				["monster"] = {
 					{["event"] = "LOOT_OPENED", ["callback"] = "handleEventMonster"}, 
 					{["event"] = "OTHER_EVENT", ["callback"] = "handleEventMonster"}, 
-			   	}
+			   	},
 			  	["quest"] = {
 			  		{["event"] = "QUEST_TURNED_IN", ["callback"] = "handleEventQuest"},
 			  	}
@@ -146,6 +146,7 @@ end
 function GetErDone:OnEnable()
 	print("im gay")
 	---First Time Setup l---
+	if self.db.global.trackables == nil  then self.db.global.trackables = {} end
 	if self.db.global.trackables.monsters == nil then self.db.global.trackables.monsters = {} end
 	if self.db.global.trackables.quests == nil then self.db.global.trackables.quests = {} end
 	if self.db.global.frequency == nil then self.db.global.frequency = "" end
@@ -177,7 +178,9 @@ end
 function GetErDone:checkEvent(type, guid)
 	if type == MONSTER then
 		local npcId = self:getNpcId(guid)
-		local dbNpcId self.db.global.monsters[npcId]
+		print(npcId)
+		local dbNpcId = self.db.global.trackables.monsters[npcId]
+		print(dbNpcId)
 		if dbNpcId ~= nil then
 			print("Setting " .. npcId .. " to completed.")
 			self:setCompleted(dbNpcId)
@@ -186,9 +189,12 @@ function GetErDone:checkEvent(type, guid)
 	end
 end
 
+function GetErDone:setCompleted(id)
+	print("my dad fucks me")
+end
 
 -- sorry rarity guy
-function GetErDone:GetNpcId(guid)
+function GetErDone:getNpcId(guid)
 	if guid then
 		local unit_type, _, _, _, _, mob_id = strsplit('-', guid)
 		return (guid and mob_id and tonumber(mob_id)) or 0
@@ -196,11 +202,11 @@ function GetErDone:GetNpcId(guid)
 	return 0
 end
 
-function GerErDone:registerHandlers()
+function GetErDone:registerHandlers()
 	for type, eventObj in pairs(events) do
-		for eventy in eventObj do
+		for k, eventy in pairs(eventObj) do
 			print(eventy.callback .. " registered for event " .. eventy.event)
-			AceEvent:RegisterEvent(eventy.event, eventy.callback, eventy.event)
+			self:RegisterEvent(eventy.event, eventy.callback, eventy.event)
 		end
 	end
 end
@@ -212,7 +218,7 @@ function GetErDone:handleEventMonster(event)
 		for slotId = 1, numItems, 1 do
 			mobList = { GetLootSourceInfo(slotId) }
 			for k, v in pairs(mobList) do
-				if v and type(v) = "string" then
+				if v and type(v) == "string" then
 					print("Checking mob id " .. v)
 					self:checkEvent(MONSTER, v)
 				end
@@ -227,21 +233,21 @@ end
 
 function GetErDone:updateResets()
 	for k, v in pairs(getAllTrackables) do
-		v.repeat = self:nextReset(v.repeat, v.frequency)
-		print("Updated " .. k .. " reset to " .. v.repeat)
+		v.reset = self:nextReset(v.reset, v.frequency)
+		print("Updated " .. k .. " reset to " .. v.reset)
 	end
 end
 
 function GetErDone:getAllTrackables()
-	table = {}
+	tracks = {}
 	for group, groups in pairs(self.db.global.trackables) do
-		if group != "compound" then
+		if not group == "compound" then
 			for id, value in pairs(groups) do
-				table.insert(id, value)
+				tracks.insert(id, value)
 			end
 		end
 	end
-	return table
+	return tracks
 end
 
 function GetErDone:OnDisable()

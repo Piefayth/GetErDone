@@ -9,7 +9,7 @@ GetErDoneDb = {
 				["characters"] = {
 					{"Ihs", "Draenor"},
 				},
-				["repeat"] = "20141029",
+				["reset"] = "20141029",
 				["frequency"] = "1",
 				["item"] = "1111",
 			},
@@ -19,7 +19,7 @@ GetErDoneDb = {
 				["characters"] = {
 					{"buttlord", "draenor"},
 				},
-				["repeat"] = "20141104",
+				["reset"] = "20141104",
 				["frequency"] = "7",
 				["compound"] = "e6ba",
 			},
@@ -33,7 +33,7 @@ GetErDoneDb = {
 				["comprisedOf"] = {
 					"4563", "68494"
 				},
-				["repeat"] = "20141029",
+				["reset"] = "20141029",
 				["frequency"] = "1",
 				["conditions"] = {
 					["quantity"] = "2",
