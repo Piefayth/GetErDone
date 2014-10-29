@@ -63,7 +63,7 @@ local options = {
 						name = "Frequency",
 						desc = "How often should this item reset?",
 						style = "dropdown",
-						values = {["daily"] = "Daily", ["weekly"] = "Weekly", ["once"] = "Once"},
+						values = {["daily"] = "Daily", ["weekly"] = "Weekly", ["once"] = "Once", ["monthly"] = "Monthly"},
 						set = function(k,v)
 							GetErDone:ApplyOption(k,v)
 						end,
@@ -125,7 +125,7 @@ function GetErDone:AddTrackable(id, type)
 		{
 		["frequency"] = self.db.global.frequency,
  		["characters"] = {self.db.global.character},
- 		["reset"] = nextReset(self.db.global.frequency, "US")
+ 		["reset"] = GetErDone:nextReset(self.db.global.frequency, "US")
     	}
   	elseif self.db.global.character ~= "all" then
     	table.insert(self.db.global.trackables[type][id]["characters"], self.db.global.character)
@@ -159,15 +159,7 @@ function GetErDone:OnEnable()
 	if self.db.global.frequency == nil then self.db.global.frequency = "" end
 	if self.db.global.characters == nil then self.db.global.characters = {} end
 
-	table.insert(self.db.global.trackables.monsters, "58448", {
-				["name"] = "DEBUG GOAT",
-				["characters"] = {
-					{"Ihs", "Draenor"},
-				},
-				["reset"] = "20141029",
-				["frequency"] = "1",
-				["item"] = "1111",
-			})
+
 	name, server = UnitFullName("player")
 	if self.db.global.characters[name..server] == nil then 
 		self.db.global.characters[name..server] = name .. " - " .. server
@@ -285,7 +277,7 @@ function GetErDone:OnLogin()
 end
 
 function GetErDone:nextReset(frequency, region)
-  currentDate = os.date("!*t")
+  currentDate = date("!*t")
   --currentDate = {["wday"] = 4, ["day"] = 1, ["month"] = 11, ["year"] = 2014, ["hour"] = 12}
   monthdays = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31}
   if currentDate["year"] % 4 == 0 then monthdays[2] = 29 end
@@ -308,19 +300,19 @@ function GetErDone:nextReset(frequency, region)
       if currentDate["hour"] < regionalResetHour then daysRemaining = 0 end
       if currentDate["hour"] >= regionalResetHour then daysRemaining = 7 end
     end
-    resetDate = addDays(resetDate, currentDate, daysRemaining)
+    resetDate = GetErDone:addDays(resetDate, currentDate, daysRemaining)
   elseif frequency == "daily" then
-    resetDate = addDays(resetDate, currentDate, 1)
+    resetDate = GetErDone:addDays(resetDate, currentDate, 1)
   elseif frequency == "monthly" then
     daysRemaining = monthdays[currentDate["month"]] - currentDate["day"] + 1
-    resetDate = addDays(resetDate, currentDate, daysRemaining)
+    resetDate = GetErDone:addDays(resetDate, currentDate, daysRemaining)
   elseif frequency == "once" then
   	return 0
   else
     return nil
   end
   resetDate["hour"] = regionalResetHour
-  return os.time(resetDate)
+  return resetDate
 end
 
 function GetErDone:addDays(resetDate, currentDate, days)
