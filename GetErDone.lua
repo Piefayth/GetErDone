@@ -9,7 +9,7 @@ local events = 	{
 				["monster"] = {
 					{["event"] = "LOOT_OPENED", ["callback"] = "handleEventMonster"}, 
 					{["event"] = "OTHER_EVENT", ["callback"] = "handleEventMonster"}, 
-			   	}
+			   	},
 			  	["quest"] = {
 			  		{["event"] = "QUEST_TURNED_IN", ["callback"] = "handleEventQuest"},
 			  	}
@@ -34,7 +34,7 @@ local options = {
 						desc = "Add a new trackable monster ID",
 						pattern = "(%d+)",
 						set = function(k,v)
-							GetErDone:AddMonster(v)
+							GetErDone:AddTrackable(v, "monsters")
 						end
 					},
 					separator = {
@@ -49,7 +49,7 @@ local options = {
 						desc = "Add a new trackable quest flag ID",
 						pattern = "(%d+)",
 						set = function(k,v)
-							GetErDone:AddQuest(v)
+							GetErDone:AddTrackable(v, "quests")
 						end
 					},
 					separator = {
@@ -114,19 +114,26 @@ function GetErDone:GetOption(v)
 	return self.db.global[v]
 end
 
-function GetErDone:AddMonster(id)
-	--NEED TO CHECK IF MONSTER ID ALREADY EXISTS FIRST, THIS ASSUMES IT DOESNT
-	table.insert(self.db.global.trackables.monsters, {["monsterid"] = id, 
-										["frequency"] = self.db.global.frequency,
-										["characters"] = {self.db.global.character}})
+function GetErDone:AddTrackable(id, type)
+
+	if self.db.global.trackables[type] == nil then
+		self.db.global.trackables[type] = {}
+	end
+	
+	if self.db.global.trackables[type][id] == nil and self.db.global.character ~= "all" then
+		self.db.global.trackables[type][id] = 
+		{
+		["frequency"] = self.db.global.frequency,
+ 		["characters"] = {self.db.global.character}
+ 		["reset"] = 
+    	}
+  	elseif self.db.global.character ~= "all" then
+    	table.insert(self.db.global.trackables[type][id]["characters"], self.db.global.character)
+  	else
+    	self.db.global.trackables[type][id] = self.db.global.characters
+  	end
 end
 
-function GetErDone:AddQuest(id)
-	--NEED TO CHECK IF MONSTER ID ALREADY EXISTS FIRST, THIS ASSUMES IT DOESNT
-	table.insert(self.db.global.trackables.quests, {["questid"] = id, 
-										["frequency"] = self.db.global.frequency,
-										["characters"] = {self.db.global.character}})
-end
 
 function GetErDone:OnInitialize()
 	AceConfig:RegisterOptionsTable("GetErDone", options, {"ged", "geterdone"}) --TODO: Make these slash commands just open the menu
@@ -144,8 +151,10 @@ function GetErDone:OnInitialize()
 end
 
 function GetErDone:OnEnable()
+	print("hi")
 
 	---First Time Setup l---
+	if self.db.global.trackables == nil then self.db.global.trackables = {} end
 	if self.db.global.trackables.monsters == nil then self.db.global.trackables.monsters = {} end
 	if self.db.global.trackables.quests == nil then self.db.global.trackables.quests = {} end
 	if self.db.global.frequency == nil then self.db.global.frequency = "" end
@@ -155,28 +164,12 @@ function GetErDone:OnEnable()
 		self.db.global.characters[name..server] = name .. " - " .. server
 	end
 	---
-
-	for i, v in ipairs(self.db.global.trackables.monsters) do
-		if v["monsterid"] ~= nil then
-			print("Index: " .. i .. " Monster ID: " .. v.monsterid)
-		end
-	end
-	for i, v in ipairs(self.db.global.trackables.quests) do
-		if v["questid"] ~= nil then
-			print("Index: " .. i .. " Quest ID: " .. v.questid)
-		end
-	end
-	for k, v in pairs(self.db.global.characters) do --Have to use pairs over ipairs for non numerical indices, afaik
-		print(k .. v)
-	end
-
-
 end
 
 function GetErDone:checkEvent(type, guid)
 	if type == MONSTER then
 		local npcId = self:getNpcId(guid)
-		local dbNpcId self.db.global.monsters[npcId]
+		local dbNpcId = self.db.global.monsters[npcId]
 		if dbNpcId ~= nil then
 			self:Debug("Setting " .. npcId .. " to completed.")
 			self:setCompleted(dbNpcId)
@@ -195,7 +188,7 @@ function GetErDone:GetNpcId(guid)
 	return 0
 end
 
-function GerErDone:registerHandlers()
+function GetErDone:registerHandlers()
 	for type, eventObj in pairs(events) do
 		for eventy in eventObj do
 			self:Debug(eventy.callback .. " registered for event " .. eventy.event)
@@ -211,7 +204,7 @@ function GetErDone:handleEventMonster(event)
 		for slotId = 1, numItems, 1 do
 			mobList = { GetLootSourceInfo(slotId) }
 			for k, v in pairs(mobList) do
-				if v and type(v) = "string" then
+				if v and type(v) == "string" then
 					self:Debug("Checking mob id " .. v)
 					self:checkEvent(MONSTER, v)
 				end
@@ -226,21 +219,21 @@ end
 
 function GetErDone:updateResets()
 	for k, v in pairs(getAllTrackables) do
-		v.repeat = self:nextReset(v.repeat, v.frequency)
-		self:Debug("Updated " .. k .. " reset to " .. v.repeat)
+		v.reset = self:nextReset(v.reset, v.frequency)
+		self:Debug("Updated " .. k .. " reset to " .. v.reset)
 	end
 end
 
 function GetErDone:getAllTrackables()
-	table = {}
+	t = {}
 	for group, groups in pairs(self.db.global.trackables) do
-		if group != "compound" then
+		if group ~= "compound" then
 			for id, value in pairs(groups) do
-				table.insert(id, value)
+				table.insert(t, {[id] = value})
 			end
 		end
 	end
-	return table
+	return t
 end
 
 function GetErDone:OnDisable()
@@ -285,6 +278,8 @@ function GetErDone:nextReset(frequency, region)
   elseif frequency == "monthly" then
     daysRemaining = monthdays[currentDate["month"]] - currentDate["day"] + 1
     resetDate = addDays(resetDate, currentDate, daysRemaining)
+  elseif frequency == "once" then
+  	return 0
   else
     return nil
   end
