@@ -131,8 +131,8 @@ end
 function GetErDone:OnEnable()
 
 	---First Time Setup l---
-	if self.db.global.monsters == nil then self.db.global.monsters = {} end
-	if self.db.global.quests == nil then self.db.global.quests = {} end
+	if self.db.global.trackables.monsters == nil then self.db.global.trackables.monsters = {} end
+	if self.db.global.trackables.quests == nil then self.db.global.quests = {} end
 	if self.db.global.frequency == nil then self.db.global.frequency = "" end
 	if self.db.global.characters == nil then self.db.global.characters = {} end
 	name, server = UnitFullName("player")
@@ -141,12 +141,12 @@ function GetErDone:OnEnable()
 	end
 	---
 
-	for i, v in ipairs(self.db.global.monsters) do
+	for i, v in ipairs(self.db.global.trackables.monsters) do
 		if v["monsterid"] ~= nil then
 			print("Index: " .. i .. " Monster ID: " .. v.monsterid)
 		end
 	end
-	for i, v in ipairs(self.db.global.quests) do
+	for i, v in ipairs(self.db.global.trackables.quests) do
 		if v["questid"] ~= nil then
 			print("Index: " .. i .. " Quest ID: " .. v.questid)
 		end
@@ -156,6 +156,24 @@ function GetErDone:OnEnable()
 	end
 
 
+end
+
+function GetErDone:updateResets()
+	for k, v in pairs(getAllTrackables) do
+		v.repeat = GetErDoneUtils:nextReset(v.repeat, v.frequency)
+	end
+end
+
+function GetErDone:getAllTrackables()
+	table = {}
+	for group, groups in pairs(self.db.global.trackables) do
+		if group != "compound" then
+			for id, value in pairs(groups) do
+				table.insert(id, value)
+			end
+		end
+	end
+	return table
 end
 
 function GetErDone:OnDisable()

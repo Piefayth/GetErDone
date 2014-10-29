@@ -2,16 +2,43 @@ GetErDoneDb = {
 	["profilekeys"] = {
 		"literally wank me off",
 	},
-	["char"] = {
-		["Piefayth - Tichondrius"] = {
-			["monsters"] = {
-				"19622",
-				"18481",
+	["trackables"] = {
+		["monsters"] = {
+			["123456"] = {
+				["characters"] = {
+					{"buttlord", "draenor"},
+					{"smegma", "draenor"}
+				},
+				["repeat"] = "20141029",
+				["frequency"] = "1",
+				["item"] = "1111",
 			},
-			["quests"] = {
-				"11007",
-				"11394",
+		}, 
+		["quests"] = {
+			["4563"] = {
+				["characters"] = {
+					{"buttlord", "draenor"},
+				},
+				["repeat"] = "20141104",
+				["frequency"] = "7",
+				["compound"] = "e6ba",
 			},
 		},
-	},
+		["compound"] = {
+			["e6ba"] = {
+				["name"] = "some daily hub",
+				["characters"] = {
+					{"buttlord", "draenor"},
+				},
+				["comprisedOf"] = {
+					"4563", "68494"
+				},
+				["repeat"] = "20141029",
+				["frequency"] = "1",
+				["conditions"] = {
+					["quantity"] = "2",
+				},
+			},
+		}
+	}
 }
