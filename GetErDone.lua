@@ -124,8 +124,8 @@ function GetErDone:AddTrackable(id, type)
 		self.db.global.trackables[type][id] = 
 		{
 		["frequency"] = self.db.global.frequency,
- 		["characters"] = {self.db.global.character}
- 		["reset"] = 
+ 		["characters"] = {self.db.global.character},
+ 		["reset"] = nextReset(self.db.global.frequency, "US")
     	}
   	elseif self.db.global.character ~= "all" then
     	table.insert(self.db.global.trackables[type][id]["characters"], self.db.global.character)
@@ -151,9 +151,7 @@ function GetErDone:OnInitialize()
 end
 
 function GetErDone:OnEnable()
-<<<<<<< HEAD
 	print("hi")
->>>>>>> 8224630904148974520d9e6a9b8273c2622b8326
 	---First Time Setup l---
 	if self.db.global.trackables == nil then self.db.global.trackables = {} end
 	if self.db.global.trackables.monsters == nil then self.db.global.trackables.monsters = {} end
@@ -170,14 +168,11 @@ function GetErDone:OnEnable()
 				["frequency"] = "1",
 				["item"] = "1111",
 			})
-
 	name, server = UnitFullName("player")
 	if self.db.global.characters[name..server] == nil then 
 		self.db.global.characters[name..server] = name .. " - " .. server
 	end
-	---
-<<<<<<< HEAD
-=======
+
 
 	for i, v in ipairs(self.db.global.trackables.monsters) do
 		if v["monsterid"] ~= nil then
@@ -194,20 +189,14 @@ function GetErDone:OnEnable()
 	end
 
 	self:registerHandlers()
-
->>>>>>> 8224630904148974520d9e6a9b8273c2622b8326
 end
 
 function GetErDone:checkEvent(type, guid)
 	if type == MONSTER then
 		local npcId = self:getNpcId(guid)
-<<<<<<< HEAD
-		local dbNpcId = self.db.global.monsters[npcId]
-=======
 		print(npcId)
 		local dbNpcId = self.db.global.trackables.monsters[npcId]
 		print(dbNpcId)
->>>>>>> 8224630904148974520d9e6a9b8273c2622b8326
 		if dbNpcId ~= nil then
 			print("Setting " .. npcId .. " to completed.")
 			self:setCompleted(dbNpcId)
@@ -246,11 +235,7 @@ function GetErDone:handleEventMonster(event)
 			mobList = { GetLootSourceInfo(slotId) }
 			for k, v in pairs(mobList) do
 				if v and type(v) == "string" then
-<<<<<<< HEAD
-					self:Debug("Checking mob id " .. v)
-=======
 					print("Checking mob id " .. v)
->>>>>>> 8224630904148974520d9e6a9b8273c2622b8326
 					self:checkEvent(MONSTER, v)
 				end
 			end
@@ -265,26 +250,11 @@ end
 function GetErDone:updateResets()
 	for k, v in pairs(getAllTrackables) do
 		v.reset = self:nextReset(v.reset, v.frequency)
-<<<<<<< HEAD
-		self:Debug("Updated " .. k .. " reset to " .. v.reset)
-=======
 		print("Updated " .. k .. " reset to " .. v.reset)
->>>>>>> 8224630904148974520d9e6a9b8273c2622b8326
 	end
 end
 
 function GetErDone:getAllTrackables()
-<<<<<<< HEAD
-	t = {}
-	for group, groups in pairs(self.db.global.trackables) do
-		if group ~= "compound" then
-			for id, value in pairs(groups) do
-				table.insert(t, {[id] = value})
-			end
-		end
-	end
-	return t
-=======
 	tracks = {}
 	for group, groups in pairs(self.db.global.trackables) do
 		if not group == "compound" then
@@ -294,7 +264,6 @@ function GetErDone:getAllTrackables()
 		end
 	end
 	return tracks
->>>>>>> 8224630904148974520d9e6a9b8273c2622b8326
 end
 
 function GetErDone:OnDisable()
