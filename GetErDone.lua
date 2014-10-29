@@ -146,11 +146,22 @@ end
 function GetErDone:OnEnable()
 	print("im gay")
 	---First Time Setup l---
-	if self.db.global.trackables == nil  then self.db.global.trackables = {} end
+	if self.db.global.trackables == nil then self.db.global.trackables = {} end
 	if self.db.global.trackables.monsters == nil then self.db.global.trackables.monsters = {} end
 	if self.db.global.trackables.quests == nil then self.db.global.trackables.quests = {} end
 	if self.db.global.frequency == nil then self.db.global.frequency = "" end
 	if self.db.global.characters == nil then self.db.global.characters = {} end
+
+	table.insert(self.db.global.trackables.monsters, "58448", {
+				["name"] = "DEBUG GOAT",
+				["characters"] = {
+					{"Ihs", "Draenor"},
+				},
+				["reset"] = "20141029",
+				["frequency"] = "1",
+				["item"] = "1111",
+			})
+
 	name, server = UnitFullName("player")
 	if self.db.global.characters[name..server] == nil then 
 		self.db.global.characters[name..server] = name .. " - " .. server
