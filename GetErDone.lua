@@ -5,6 +5,16 @@ local AceConfigDialog = LibStub("AceConfigDialog-3.0")
 local AceDB = LibStub("AceDB-3.0")
 local AceDBOptions = LibStub("AceDBOptions-3.0")
 
+local events = 	{
+				["monster"] = {
+					{["event"] = "LOOT_OPENED", ["callback"] = "handleEventMonster"}, 
+					{["event"] = "OTHER_EVENT", ["callback"] = "handleEventMonster"}, 
+			   	}
+			  	["quest"] = {
+			  		{["event"] = "QUEST_TURNED_IN", ["callback"] = "handleEventQuest"},
+			  	}
+			 }
+
 local options = {
 	name = "Get Er Done",
 	type = 'group',
@@ -101,14 +111,14 @@ end
 
 function GetErDone:AddMonster(id)
 	--NEED TO CHECK IF MONSTER ID ALREADY EXISTS FIRST, THIS ASSUMES IT DOESNT
-	table.insert(self.db.global.monsters, {["monsterid"] = id, 
+	table.insert(self.db.global.trackables.monsters, {["monsterid"] = id, 
 										["frequency"] = self.db.global.frequency,
 										["characters"] = {self.db.global.character}})
 end
 
 function GetErDone:AddQuest(id)
 	--NEED TO CHECK IF MONSTER ID ALREADY EXISTS FIRST, THIS ASSUMES IT DOESNT
-	table.insert(self.db.global.quests, {["questid"] = id, 
+	table.insert(self.db.global.trackables.quests, {["questid"] = id, 
 										["frequency"] = self.db.global.frequency,
 										["characters"] = {self.db.global.character}})
 end
@@ -132,7 +142,7 @@ function GetErDone:OnEnable()
 
 	---First Time Setup l---
 	if self.db.global.trackables.monsters == nil then self.db.global.trackables.monsters = {} end
-	if self.db.global.trackables.quests == nil then self.db.global.quests = {} end
+	if self.db.global.trackables.quests == nil then self.db.global.trackables.quests = {} end
 	if self.db.global.frequency == nil then self.db.global.frequency = "" end
 	if self.db.global.characters == nil then self.db.global.characters = {} end
 	name, server = UnitFullName("player")
@@ -156,6 +166,22 @@ function GetErDone:OnEnable()
 	end
 
 
+end
+
+function GerErDone:registerHandlers()
+	for type, eventObj in pairs(events) do
+		for eventy in eventObj do
+			AceEvent:RegisterEvent(eventy.event, eventy.callback)
+		end
+	end
+end
+
+function GetErDone:handleEventMonster() 
+	-- TODO
+end
+
+function GetErDone:handleEventQuest()
+	-- TODO
 end
 
 function GetErDone:updateResets()
