@@ -130,7 +130,7 @@ end
 
 function GetErDone:OnInitialize()
 	AceConfig:RegisterOptionsTable("GetErDone", options, {"ged", "geterdone"}) --TODO: Make these slash commands just open the menu
-	self.db = LibStub("AceDB-3.0"):New("GetErDoneDB")
+	self.db = LibStub("AceDB-3.0"):New("GetErDoneDb")
 
 
 	
@@ -144,7 +144,7 @@ function GetErDone:OnInitialize()
 end
 
 function GetErDone:OnEnable()
-
+	print("im gay")
 	---First Time Setup l---
 	if self.db.global.trackables.monsters == nil then self.db.global.trackables.monsters = {} end
 	if self.db.global.trackables.quests == nil then self.db.global.trackables.quests = {} end
@@ -170,6 +170,7 @@ function GetErDone:OnEnable()
 		print(k .. v)
 	end
 
+	self:registerHandlers()
 
 end
 
@@ -178,7 +179,7 @@ function GetErDone:checkEvent(type, guid)
 		local npcId = self:getNpcId(guid)
 		local dbNpcId self.db.global.monsters[npcId]
 		if dbNpcId ~= nil then
-			self:Debug("Setting " .. npcId .. " to completed.")
+			print("Setting " .. npcId .. " to completed.")
 			self:setCompleted(dbNpcId)
 		end
 		return
@@ -198,7 +199,7 @@ end
 function GerErDone:registerHandlers()
 	for type, eventObj in pairs(events) do
 		for eventy in eventObj do
-			self:Debug(eventy.callback .. " registered for event " .. eventy.event)
+			print(eventy.callback .. " registered for event " .. eventy.event)
 			AceEvent:RegisterEvent(eventy.event, eventy.callback, eventy.event)
 		end
 	end
@@ -212,7 +213,7 @@ function GetErDone:handleEventMonster(event)
 			mobList = { GetLootSourceInfo(slotId) }
 			for k, v in pairs(mobList) do
 				if v and type(v) = "string" then
-					self:Debug("Checking mob id " .. v)
+					print("Checking mob id " .. v)
 					self:checkEvent(MONSTER, v)
 				end
 			end
@@ -227,7 +228,7 @@ end
 function GetErDone:updateResets()
 	for k, v in pairs(getAllTrackables) do
 		v.repeat = self:nextReset(v.repeat, v.frequency)
-		self:Debug("Updated " .. k .. " reset to " .. v.repeat)
+		print("Updated " .. k .. " reset to " .. v.repeat)
 	end
 end
 
@@ -251,6 +252,7 @@ end
 ---OnLogin defaults the "character" dropdown to the character you're currently logged in as.
 function GetErDone:OnLogin()
 	name, server = UnitFullName("player")
+	print("i'm really gay")
 	self.db.global.character = name..server
 	self.trackables = self:getAllTrackables()
 end

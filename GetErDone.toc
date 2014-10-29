@@ -3,7 +3,7 @@
 ## Notes: Please work
 ## Author: Piefayth
 ## Version 1.0
-## SavedVariables: GetErDoneDB
+## SavedVariables: GetErDoneDb
 
 embeds.xml
 GetErDone.lua
