@@ -338,6 +338,7 @@ function GetErDone:checkEvent(type, guid)
 					end
 				end
 			end
+		end
 		return
 	end
 end
