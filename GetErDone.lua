@@ -323,18 +323,21 @@ end
 function GetErDone:checkEvent(type, guid)
 	if type == MONSTER then
 		local npcId = self:getNpcId(guid)
+		if npcId == nil then return end
 		self:debug(npcId)
-		local dbNpc = self.db.global.trackables[npcId][type]
+		local dbNpc = self.db.global.trackables[npcId]
 		self:debug(dbNpc)
 		if dbNpc ~= nil then
-			local compounds = dbNpc.ownedBy
-			if compounds ~= nil then
-				for k, compound_id in pairs(compounds) do
-					self:debug("Passing message to compound id " .. compound_id)
-					self:informCompound(compound_id, dbNpc)
+			local dbNpcType = dbNpc[type]
+			if dbNpcId ~= nil then
+				local compounds = dbNpcId.ownedBy
+				if compounds ~= nil then
+					for k, compound_id in pairs(compounds) do
+						self:debug("Passing message to compound id " .. compound_id)
+						self:informCompound(compound_id, dbNpcId)
+					end
 				end
 			end
-		end
 		return
 	end
 end
