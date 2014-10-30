@@ -258,7 +258,7 @@ function GetErDone:informCompound(compound_id, trackable)
 end
 
 function GetErDone:shouldTrack(compound)
-	if not compound.active return false end
+	if not compound.active then return false end
 	for k, character in pairs(compound.characters) do
 		if character == self.db.global.character then
 			self:debug("Setting " .. compound.name .. " to completed.")
