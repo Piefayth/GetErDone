@@ -151,24 +151,26 @@ options = {
 						end,
 						get = function() return end,
 					},
+					testeventkill = {
+						order = 12,
+						type = "toggle",
+						name = "testeventkill",
+						desc = "",
+						set = function() GetErDone:testeventkill() end,
+						get = function() end,
+					},
+					testeventkill1 = {
+						order = 13,
+						type = "toggle",
+						name = "testeventkill1",
+						desc = "",
+						set = function() GetErDone:testeventkill_one() end,
+						get = function() end,
+					},
 				},
 			},
 		},
 	}
-
-function GetErDone:testInsertCompound()
-	local id, compound = self:createCompound()
-	self.db.global.options = {
-		["frequency"] = 7,
-		["reset"] = self:nextReset(7, "EU"),
-		["characters"] = "All",
-		["conditions"] = {
-			["quantity"] = 2,
-		},
-	}
-	self:AddTrackable(1, MONSTER, "test monster", id)
-	table.insert(self.db.global.compounds, id, compound)
-end
 
 
 MONSTER = "monsters"
@@ -193,11 +195,24 @@ function GetErDone:GetOption(v)
 	return self.db.global[v]
 end
 
+function GetErDone:testeventkill()
+	local guid1 = "Creature-0-1403-870-139-1-0000D2B633"
+	local guid2 = "Creature-0-1403-870-139-2-0000D2B633"
+	self:checkEvent(MONSTER, guid1)
+	self:checkEvent(MONSTER, guid2)
+end
+
+function GetErDone:testeventkill_one()
+	local guid1 = "Creature-0-1403-870-139-1-0000D2B633"
+	self:checkEvent(MONSTER, guid1)
+end
+
 function GetErDone:addThing()
 	local id, compound = self:createCompound()
 	compound.conditions = {["quantity"] = 2}
+	self.db.global.options.character = "All"
 	compound.characters = self:getCharactersFromOptions()
-	compound.reset = self:nextReset(1, "EU")
+	compound.reset = self:nextReset("daily", "EU")
 	compound.name = "test compound"
 	self.db.global.compounds[id] = compound
 	self:AddTrackable("1", MONSTER, "test1", id)
@@ -205,11 +220,11 @@ function GetErDone:addThing()
 end
 
 function GetErDone:getCharactersFromOptions()
-	local chars = self.db.global.options.characters
+	local chars = self.db.global.options.character
 	if chars == "All" then
-		return self:prepareNames(self.db.profileKeys)
+		return self:prepareNames(self.db.global.characters)
 	end
-	return {chars}
+	return { chars }
 end
 
 function GetErDone:createCompound()
@@ -218,7 +233,7 @@ function GetErDone:createCompound()
 		["active"] = true,
 		["characters"] = {},
 		["reset"] = {},
-		["frequency"] = 1,
+		["frequency"] = "daily",
 		["comprisedOf"] = {},
 		["ownedBy"] = {},
 		["conditions"] = {},
@@ -236,13 +251,11 @@ end
 function GetErDone:AddTrackable(id, type, name, owner)
 	self:ensureTrackable(id)
 	if self.db.global.trackables[id][type] == nil then
-		print("correct")
 		self.db.global.trackables[id][type] = {
 			["name"] = name,
 			["ownedBy"] = { owner },
     	}
     else
-    	print("wrong")
     	if not self:contains(self.db.global.trackables[id][type].ownedBy, owner) then
     		table.insert(self.db.global.trackables[id][type].ownedBy, owner)
     	end
@@ -262,8 +275,7 @@ end
 function GetErDone:prepareNames(names)
 	local newNames = {}
 	for k, v in pairs(names) do
-		local n, s = strsplit(" - ", v)
-		table.insert(newNames, n..s)
+		table.insert(newNames, k)
 	end
 	return newNames
 end
@@ -297,6 +309,7 @@ function GetErDone:OnEnable()
 	if self.db.global.options.quantity == nil then self.db.global.options.quantity = 1 end
 	if self.db.global.options.frequency == nil then self.db.global.options.frequency = "" end
 	if self.db.global.options.nextCompoundId == nil then self.db.global.options.nextCompoundId = 1 end
+	if self.db.global.tracked == nil then self.db.global.tracked = {} end
 
 
 	name, server = UnitFullName("player")
@@ -311,14 +324,14 @@ function GetErDone:checkEvent(type, guid)
 	if type == MONSTER then
 		local npcId = self:getNpcId(guid)
 		self:debug(npcId)
-		local dbNpc = self.db.global.trackables[npcId]
+		local dbNpc = self.db.global.trackables[npcId][type]
 		self:debug(dbNpc)
 		if dbNpc ~= nil then
 			local compounds = dbNpc.ownedBy
 			if compounds ~= nil then
-				for k, compound in pairs(compounds) do
-					self:debug("Passing message to compound id " .. compound)
-					self:informCompound(compound, dbNpc)
+				for k, compound_id in pairs(compounds) do
+					self:debug("Passing message to compound id " .. compound_id)
+					self:informCompound(compound_id, dbNpc)
 				end
 			end
 		end
@@ -337,10 +350,10 @@ function GetErDone:informCompound(compound_id, trackable)
 
 	-- call recursively for any compound compounds
 	for k, owner in pairs(compound.ownedBy) do
-		if owner ~= nil then self:informCompound(owner, compound) end
+		if owner ~= nil then self:informCompound(owner, compound_id) end
 	end
 
-	self:setCompleted(compound)
+	self:setCompleted(compound_id)
 end
 
 function GetErDone:shouldTrack(compound)
@@ -356,24 +369,29 @@ end
 
 function GetErDone:setCompleted(compound_id)
 	local compound = self.db.global.compounds[compound_id]
-	if compound == nil then return end
+	if compound == nil then 
+		self:debug("Compound id " .. compound_id .. " referred to a null compound")
+		return 
+	end
+	self:debug("Setting " .. compound_id .. " to completed")
 	local character = self.db.global.character
 	self:ensureTracked(compound_id, character)
 
-
-	self.db.tracked[compound_id][character].quantityCompleted = self.db.tracked[compound_id][character].quantityCompleted + 1
-	if self.db.tracked[compound_id][character].quantityCompleted >= compound.conditions.quantity then
-		self.db.tracked[compound_id][character].completed = true
+	if not self.db.global.tracked[compound_id][character].completed then
+		self.db.global.tracked[compound_id][character].quantityCompleted = self.db.global.tracked[compound_id][character].quantityCompleted + 1
+		if self.db.global.tracked[compound_id][character].quantityCompleted >= compound.conditions.quantity then
+			self.db.global.tracked[compound_id][character].completed = true
+			self:debug("compound id " .. compound_id .. " successfully completed")
+		end
 	end
 end
 
 function GetErDone:ensureTracked(compound_id, character_name)
-	local db = self.db.global
-	if db.tracked == nil then db.tracked = {} end
-	if db.tracked[compound_id] == nil then db.tracked[compound_id] = {} end
-	if db.tracked[compound_id][character_name] == nil then db.tracked[compound_id][character_name] = {} end
-	if db.tracked[compound_id][character_name].completed == nil then db.tracked[compound_id][character_name].completed = false end
-	if db.tracked[compound_id][character_name].quantityCompleted == nil then db.tracked[compound_id][character_name].quantityCompleted = 0 end
+	if self.db.global.tracked == nil then self.db.global.tracked = {} end
+	if self.db.global.tracked[compound_id] == nil then self.db.global.tracked[compound_id] = {} end
+	if self.db.global.tracked[compound_id][character_name] == nil then self.db.global.tracked[compound_id][character_name] = {} end
+	if self.db.global.tracked[compound_id][character_name].completed == nil then self.db.global.tracked[compound_id][character_name].completed = false end
+	if self.db.global.tracked[compound_id][character_name].quantityCompleted == nil then self.db.global.tracked[compound_id][character_name].quantityCompleted = 0 end
 end
 
 
@@ -481,7 +499,7 @@ function GetErDone:nextReset(frequency, region)
   elseif frequency == "once" then
   	return 0
   else
-    return nil
+    error()
   end
   resetDate["hour"] = regionalResetHour
   return resetDate
