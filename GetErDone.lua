@@ -18,7 +18,7 @@ local events = 	{
 
 local trackables = {}
 
-local options = {
+options = {
 	name = "Get Er Done",
 	type = 'group',
 	args = {
@@ -35,7 +35,7 @@ local options = {
 						desc = "Add a new trackable monster ID",
 						pattern = "(%d+)",
 						set = function(k,v)
-							GetErDone:AddTrackable(v, MONSTER, name, "1")
+							GetErDone:AddTrackable(v, MONSTER, "some gay monster", "1")
 						end
 					},
 					trackitem = {
@@ -45,7 +45,7 @@ local options = {
 						desc = "Add a new trackable item ID",
 						pattern = "(%d+)",
 						set = function(k,v)
-							GetErDone:AddTrackable(v, ITEM, name, "1")
+							GetErDone:AddTrackable(v, ITEM, "an item", "1")
 						end
 					},
 					trackquest = {
@@ -55,7 +55,7 @@ local options = {
 						desc = "Add a new trackable quest flag ID",
 						pattern = "(%d+)",
 						set = function(k,v)
-							GetErDone:AddTrackable(v, QUEST, name, "1")
+							GetErDone:AddTrackable(v, QUEST, "some thing", "1")
 						end
 					},
 					separator = {
@@ -86,7 +86,7 @@ local options = {
 						values = function()
 							t = {["All"] = "All"}
 							for k, v in pairs(GetErDone:GetOption("characters")) do
-								self:debug(k..v)
+								--print(k..v)
 								t[k] = v
 							end
 							return t
@@ -124,20 +124,57 @@ local options = {
 						values = function()
 							t = {["None"] = "None"}
 							for k, v in pairs(GetErDone:GetOption("compound")) do
-								self:debug(k..v)
+								print(k..v)
 								t[k] = v
 							end
 							return t
 						end,
+					},
+					test = {
+						order = 10,
+						type = "toggle",
+						name = "test",
+						desc = "",
+						set = function() GetErDone:addThing() end,
+						get = function() return end,
+					},
+					reset = {
+						order = 11,
+						type = "toggle",
+						name = "reset",
+						desc = "",
+						set = function() 
+							for k in pairs (GetErDone.db.global) do
+    							GetErDone.db.global[k] = nil
+							end
+							GetErDone:OnEnable()
+						end,
+						get = function() return end,
 					},
 				},
 			},
 		},
 	}
 
-local MONSTER = "npc"
-local QUEST = "quest"
-local ITEM = "item"
+function GetErDone:testInsertCompound()
+	local id, compound = self:createCompound()
+	self.db.global.options = {
+		["frequency"] = 7,
+		["reset"] = self:nextReset(7, "EU"),
+		["characters"] = "All",
+		["conditions"] = {
+			["quantity"] = 2,
+		},
+	}
+	self:AddTrackable(1, MONSTER, "test monster", id)
+	table.insert(self.db.global.compounds, id, compound)
+end
+
+
+MONSTER = "monsters"
+QUEST = "quest"
+ITEM = "item"
+CUSTOM_PREFIX = "c_"
 local debugMode = true
 
 --ApplyOption is for option retention between sessions. If you click "Daily" then reloadui, it retains that selection--
@@ -156,21 +193,84 @@ function GetErDone:GetOption(v)
 	return self.db.global[v]
 end
 
-function GetErDone:AddTrackable(id, type, name, owners)
-	
-	if self.db.global.trackables[id] == nil and self.db.global.options.character ~= "All" then
-		self.db.global.trackables[id] = {
-			["type"] = type,
-			["name"] = name,
-			["ownedBy"] = owners,
-    	}
-  	elseif self.db.global.character ~= "All" then
-    	table.insert(self.db.global.trackables[id]["characters"], self.db.global.options.character)
-  	else
-    	self.db.global.trackables[id]["characters"] = self.db.global.options.characters
-  	end
+function GetErDone:addThing()
+	local id, compound = self:createCompound()
+	compound.conditions = {["quantity"] = 2}
+	compound.characters = self:getCharactersFromOptions()
+	compound.reset = self:nextReset(1, "EU")
+	compound.name = "test compound"
+	self.db.global.compounds[id] = compound
+	self:AddTrackable("1", MONSTER, "test1", id)
+	self:AddTrackable("2", MONSTER, "test2", id)
 end
 
+function GetErDone:getCharactersFromOptions()
+	local chars = self.db.global.options.characters
+	if chars == "All" then
+		return self:prepareNames(self.db.profileKeys)
+	end
+	return {chars}
+end
+
+function GetErDone:createCompound()
+	local compound = {
+		["name"] = "",
+		["active"] = true,
+		["characters"] = {},
+		["reset"] = {},
+		["frequency"] = 1,
+		["comprisedOf"] = {},
+		["ownedBy"] = {},
+		["conditions"] = {},
+	}
+	local id = GetErDone:generateNextCompoundId()
+	return id, compound
+end
+
+function GetErDone:generateNextCompoundId()
+	local id = self.db.global.options.nextCompoundId + 1
+	self.db.global.options.nextCompoundId = id
+	return CUSTOM_PREFIX .. id
+end
+
+function GetErDone:AddTrackable(id, type, name, owner)
+	self:ensureTrackable(id)
+	if self.db.global.trackables[id][type] == nil then
+		print("correct")
+		self.db.global.trackables[id][type] = {
+			["name"] = name,
+			["ownedBy"] = { owner },
+    	}
+    else
+    	print("wrong")
+    	if not self:contains(self.db.global.trackables[id][type].ownedBy, owner) then
+    		table.insert(self.db.global.trackables[id][type].ownedBy, owner)
+    	end
+    end
+    self:updateOwner(owner, id)
+end
+
+function GetErDone:updateOwner(ownerId, childId)
+	local owner = self.db.global.compounds[ownerId]
+	if owner == nil then error() end
+
+	if not self:contains(owner.comprisedOf, childId) then
+		table.insert(owner.comprisedOf, childId)
+	end
+end
+
+function GetErDone:prepareNames(names)
+	local newNames = {}
+	for k, v in pairs(names) do
+		local n, s = strsplit(" - ", v)
+		table.insert(newNames, n..s)
+	end
+	return newNames
+end
+
+function GetErDone:ensureTrackable(id)
+	if self.db.global.trackables[id] == nil then self.db.global.trackables[id] = {} end
+end
 
 function GetErDone:OnInitialize()
 	AceConfig:RegisterOptionsTable("GetErDone", options, {"ged", "geterdone"}) --TODO: Make these slash commands just open the menu
@@ -196,26 +296,12 @@ function GetErDone:OnEnable()
 	if self.db.global.options == nil then self.db.global.options = {} end
 	if self.db.global.options.quantity == nil then self.db.global.options.quantity = 1 end
 	if self.db.global.options.frequency == nil then self.db.global.options.frequency = "" end
+	if self.db.global.options.nextCompoundId == nil then self.db.global.options.nextCompoundId = 1 end
 
 
 	name, server = UnitFullName("player")
 	if self.db.global.characters[name..server] == nil then 
 		self.db.global.characters[name..server] = name .. " - " .. server
-	end
-
-
-	for i, v in ipairs(self.db.global.trackables.monsters) do
-		if v["monsterid"] ~= nil then
-			self:debug("Index: " .. i .. " Monster ID: " .. v.monsterid)
-		end
-	end
-	for i, v in ipairs(self.db.global.trackables.quests) do
-		if v["questid"] ~= nil then
-			self:debug("Index: " .. i .. " Quest ID: " .. v.questid)
-		end
-	end
-	for k, v in pairs(self.db.global.characters) do --Have to use pairs over ipairs for non numerical indices, afaik
-		self:debug(k .. v)
 	end
 
 	self:registerHandlers()
@@ -274,6 +360,7 @@ function GetErDone:setCompleted(compound_id)
 	local character = self.db.global.character
 	self:ensureTracked(compound_id, character)
 
+
 	self.db.tracked[compound_id][character].quantityCompleted = self.db.tracked[compound_id][character].quantityCompleted + 1
 	if self.db.tracked[compound_id][character].quantityCompleted >= compound.conditions.quantity then
 		self.db.tracked[compound_id][character].completed = true
@@ -294,7 +381,7 @@ end
 function GetErDone:getNpcId(guid)
 	if guid then
 		local unit_type, _, _, _, _, mob_id = strsplit('-', guid)
-		return (guid and mob_id and tonumber(mob_id)) or 0
+		return mob_id
 	end
 	return 0
 end
@@ -430,4 +517,19 @@ function GetErDone:debug(message)
 	if debugMode then
 		print(message)
 	end
+end
+
+function GetErDone:trim(s)
+  return s:match'^%s*(.*%S)' or ''
+end
+
+function GetErDone:contains(dict, value)
+	if dict == nil then 
+		print("what the haps my friends")
+		return false 
+	end
+	for k, v in pairs(dict) do
+		if value == v then return true end
+	end
+	return false
 end
