@@ -35,7 +35,7 @@ local options = {
 						desc = "Add a new trackable monster ID",
 						pattern = "(%d+)",
 						set = function(k,v)
-							GetErDone:AddTrackable(v, "monsters")
+							GetErDone:AddTrackable(v, MONSTER, name, "1")
 						end
 					},
 					trackitem = {
@@ -45,7 +45,7 @@ local options = {
 						desc = "Add a new trackable item ID",
 						pattern = "(%d+)",
 						set = function(k,v)
-							GetErDone:AddTrackable(v, "items")
+							GetErDone:AddTrackable(v, ITEM, name, "1")
 						end
 					},
 					trackquest = {
@@ -55,7 +55,7 @@ local options = {
 						desc = "Add a new trackable quest flag ID",
 						pattern = "(%d+)",
 						set = function(k,v)
-							GetErDone:AddTrackable(v, "quests")
+							GetErDone:AddTrackable(v, QUEST, name, "1")
 						end
 					},
 					separator = {
@@ -86,7 +86,7 @@ local options = {
 						values = function()
 							t = {["All"] = "All"}
 							for k, v in pairs(GetErDone:GetOption("characters")) do
-								print(k..v)
+								self:debug(k..v)
 								t[k] = v
 							end
 							return t
@@ -124,7 +124,7 @@ local options = {
 						values = function()
 							t = {["None"] = "None"}
 							for k, v in pairs(GetErDone:GetOption("compound")) do
-								print(k..v)
+								self:debug(k..v)
 								t[k] = v
 							end
 							return t
@@ -135,18 +135,20 @@ local options = {
 		},
 	}
 
-local MONSTER = 0
-local QUEST = 1
+local MONSTER = "npc"
+local QUEST = "quest"
+local ITEM = "item"
+local debugMode = true
 
 --ApplyOption is for option retention between sessions. If you click "Daily" then reloadui, it retains that selection--
 --The default behavior makes dropdowns always blank, which is annoying--
 function GetErDone:ApplyOption(k,v)
 	if (k[2] == "frequency") then
-		self.db.global.frequency = v
+		self.db.global.options.frequency = v
 	elseif (k[2] == "character") then
-		self.db.global.character = v
+		self.db.global.options.character = v
 	elseif (k[2] == "quantity") then
-		self.db.global.quantity = v
+		self.db.global.options.quantity = v
 	end
 end
 
@@ -154,26 +156,18 @@ function GetErDone:GetOption(v)
 	return self.db.global[v]
 end
 
-function GetErDone:AddTrackable(id, type)
-
-	if self.db.global.trackables[type] == nil then
-		self.db.global.trackables[type] = {}
-	end
+function GetErDone:AddTrackable(id, type, name, owners)
 	
-	if self.db.global.trackables[type][id] == nil and self.db.global.character ~= "All" then
-		self.db.global.trackables[type][id] = 
-		{
-		["frequency"] = self.db.global.frequency,
- 		["characters"] = {self.db.global.character},
- 		["reset"] = GetErDone:nextReset(self.db.global.frequency, "US"),
- 		["quantity"] = self.db.global.quantity,
- 		["complete"] = {[self.db.global.character] = 0}
+	if self.db.global.trackables[id] == nil and self.db.global.options.character ~= "All" then
+		self.db.global.trackables[id] = {
+			["type"] = type,
+			["name"] = name,
+			["ownedBy"] = owners,
     	}
   	elseif self.db.global.character ~= "All" then
-    	table.insert(self.db.global.trackables[type][id]["characters"], self.db.global.character)
-    	self.db.global.trackables[type][id]["complete"][self.db.global.character] = 0
+    	table.insert(self.db.global.trackables[id]["characters"], self.db.global.options.character)
   	else
-    	self.db.global.trackables[type][id]["characters"] = self.db.global.characters
+    	self.db.global.trackables[id]["characters"] = self.db.global.options.characters
   	end
 end
 
@@ -194,16 +188,14 @@ function GetErDone:OnInitialize()
 end
 
 function GetErDone:OnEnable()
-	print("hi")
+	self:debug("hi")
 	---First Time Setup l---
 	if self.db.global.trackables == nil then self.db.global.trackables = {} end
-	if self.db.global.trackables.monsters == nil then self.db.global.trackables.monsters = {} end
-	if self.db.global.trackables.quests == nil then self.db.global.trackables.quests = {} end
-	if self.db.global.trackables.quests == nil then self.db.global.trackables.quests = {} end
-	if self.db.global.frequency == nil then self.db.global.frequency = "" end
 	if self.db.global.characters == nil then self.db.global.characters = {} end
-	if self.db.global.compound == nil then self.db.global.compound = {} end
-	if self.db.global.quantity == nil then self.db.global.quantity = 1 end
+	if self.db.global.compounds == nil then self.db.global.compounds = {} end
+	if self.db.global.options == nil then self.db.global.options = {} end
+	if self.db.global.options.quantity == nil then self.db.global.options.quantity = 1 end
+	if self.db.global.options.frequency == nil then self.db.global.options.frequency = "" end
 
 
 	name, server = UnitFullName("player")
@@ -214,16 +206,16 @@ function GetErDone:OnEnable()
 
 	for i, v in ipairs(self.db.global.trackables.monsters) do
 		if v["monsterid"] ~= nil then
-			print("Index: " .. i .. " Monster ID: " .. v.monsterid)
+			self:debug("Index: " .. i .. " Monster ID: " .. v.monsterid)
 		end
 	end
 	for i, v in ipairs(self.db.global.trackables.quests) do
 		if v["questid"] ~= nil then
-			print("Index: " .. i .. " Quest ID: " .. v.questid)
+			self:debug("Index: " .. i .. " Quest ID: " .. v.questid)
 		end
 	end
 	for k, v in pairs(self.db.global.characters) do --Have to use pairs over ipairs for non numerical indices, afaik
-		print(k .. v)
+		self:debug(k .. v)
 	end
 
 	self:registerHandlers()
@@ -232,15 +224,15 @@ end
 function GetErDone:checkEvent(type, guid)
 	if type == MONSTER then
 		local npcId = self:getNpcId(guid)
-		print(npcId)
-		local dbNpcId = self.db.global.trackables.monsters[npcId]
-		print(dbNpcId)
-		if dbNpcId ~= nil then
-			for k, character in pairs(dbNpcId.characters) do
-				if character[1] .. character[2] == self.db.global.character then
-					print("Setting " .. npcId .. " to completed.")
-					self:setCompleted(dbNpcId)
-					return
+		self:debug(npcId)
+		local dbNpc = self.db.global.trackables[npcId]
+		self:debug(dbNpc)
+		if dbNpc ~= nil then
+			local compounds = dbNpc.ownedBy
+			if compounds ~= nil then
+				for k, compound in pairs(compounds) do
+					self:debug("Passing message to compound id " .. compound)
+					self:informCompound(compound, dbNpc)
 				end
 			end
 		end
@@ -248,9 +240,55 @@ function GetErDone:checkEvent(type, guid)
 	end
 end
 
-function GetErDone:setCompleted(id)
-	print("my dad fucks me")
+-- TODO need to make this deal with multiple things at once? higher quantities etc? I HAVE NO IDEA
+function GetErDone:informCompound(compound_id, trackable)
+	local compound = self.db.global.compounds[compound_id]
+
+	if compound == nil then return end
+	if not self:shouldTrack(compound) then return end
+
+	self:debug("Informing compound " .. compound.name)
+
+	-- call recursively for any compound compounds
+	for k, owner in pairs(compound.ownedBy) do
+		if owner ~= nil then self:informCompound(owner, compound) end
+	end
+
+	self:setCompleted(compound)
 end
+
+function GetErDone:shouldTrack(compound)
+	if not compound.active return false end
+	for k, character in pairs(compound.characters) do
+		if character == self.db.global.character then
+			self:debug("Setting " .. compound.name .. " to completed.")
+			return true
+		end
+	end
+	return false
+end
+
+function GetErDone:setCompleted(compound_id)
+	local compound = self.db.global.compounds[compound_id]
+	if compound == nil then return end
+	local character = self.db.global.character
+	self:ensureTracked(compound_id, character)
+
+	self.db.tracked[compound_id][character].quantityCompleted = self.db.tracked[compound_id][character].quantityCompleted + 1
+	if self.db.tracked[compound_id][character].quantityCompleted >= compound.conditions.quantity then
+		self.db.tracked[compound_id][character].completed = true
+	end
+end
+
+function GetErDone:ensureTracked(compound_id, character_name)
+	local db = self.db.global
+	if db.tracked == nil then db.tracked = {} end
+	if db.tracked[compound_id] == nil then db.tracked[compound_id] = {} end
+	if db.tracked[compound_id][character_name] == nil then db.tracked[compound_id][character_name] = {} end
+	if db.tracked[compound_id][character_name].completed == nil then db.tracked[compound_id][character_name].completed = false end
+	if db.tracked[compound_id][character_name].quantityCompleted == nil then db.tracked[compound_id][character_name].quantityCompleted = 0 end
+end
+
 
 -- sorry rarity guy
 function GetErDone:getNpcId(guid)
@@ -264,7 +302,7 @@ end
 function GetErDone:registerHandlers()
 	for type, eventObj in pairs(events) do
 		for k, eventy in pairs(eventObj) do
-			print(eventy.callback .. " registered for event " .. eventy.event)
+			self:debug(eventy.callback .. " registered for event " .. eventy.event)
 			self:RegisterEvent(eventy.event, eventy.callback, eventy.event)
 		end
 	end
@@ -278,7 +316,7 @@ function GetErDone:handleEventMonster(event)
 			mobList = { GetLootSourceInfo(slotId) }
 			for k, v in pairs(mobList) do
 				if v and type(v) == "string" then
-					print("Checking mob id " .. v)
+					self:debug("Checking mob id " .. v)
 					self:checkEvent(MONSTER, v)
 				end
 			end
@@ -291,22 +329,23 @@ function GetErDone:handleEventQuest(event)
 end
 
 function GetErDone:updateResets()
-	for k, v in pairs(getAllTrackables) do
+	for k, v in pairs(getAllTrackables()) do
 		v.reset = self:nextReset(v.reset, v.frequency)
-		print("Updated " .. k .. " reset to " .. v.reset)
+		self:debug("Updated " .. k .. " reset to " .. v.reset)
 	end
 end
 
 function GetErDone:getAllTrackables()
-	tracks = {}
-	for group, groups in pairs(self.db.global.trackables) do
-		if not group == "compound" then
-			for id, value in pairs(groups) do
-				tracks.insert(id, value)
-			end
-		end
-	end
-	return tracks
+	--tracks = {}
+	--for group, groups in pairs(self.db.global.trackables) do
+	--	if not group == "compound" then
+	--		for id, value in pairs(groups) do
+	--			tracks.insert(id, value)
+	--		end
+	--	end
+	--end
+	--return tracks
+	return self.db.global.trackables
 end
 
 function GetErDone:OnDisable()
@@ -317,7 +356,7 @@ end
 ---OnLogin defaults the "character" dropdown to the character you're currently logged in as.
 function GetErDone:OnLogin()
 	name, server = UnitFullName("player")
-	print("i'm really gay")
+	self.db.global.options.character = name..server
 	self.db.global.character = name..server
 	self.trackables = self:getAllTrackables()
 end
@@ -387,3 +426,8 @@ function GetErDone:addDays(resetDate, currentDate, days)
   return resetDate
 end
 
+function GetErDone:debug(message)
+	if debugMode then
+		print(message)
+	end
+end
