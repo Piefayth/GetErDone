@@ -1,0 +1,39 @@
+global:
+	character:
+		[current character]
+	characters:
+		[NameServer]: [Name - Server]
+	options:
+		quantity: [quantity]
+		character: [character or All]
+		nextCompoundId: [an int]
+		frequency: [daily/weekly/monthly/number of days]
+	trackables:
+		[id]:
+			[type]:
+				name: [name]
+				ownedBy:
+					{compounds that own this} NULLABLE
+	compounds:
+		[compound_id]:
+			name: [name]
+			active: [boolean]
+			characters: 
+				{characters to track on}
+			reset: 
+				hour: [hour]
+				day: [day]
+				year: [year]
+				month: [month]
+			frequency: [daily/weekly/monthly/number of days]
+			comprisedOf:
+				{trackables this owns} 
+			ownedBy:
+				{compounds that own this} NULLABLE
+			conditions:
+				quantity: [quantity]
+	tracked:
+		[compound_id]:
+			[character]: 
+				completed: [boolean]
+				quantityCompleted: [number done so far]
