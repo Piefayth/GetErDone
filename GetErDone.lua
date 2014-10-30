@@ -138,6 +138,8 @@ local options = {
 local MONSTER = 0
 local QUEST = 1
 
+
+
 --ApplyOption is for option retention between sessions. If you click "Daily" then reloadui, it retains that selection--
 --The default behavior makes dropdowns always blank, which is annoying--
 function GetErDone:ApplyOption(k,v)
@@ -186,6 +188,16 @@ function GetErDone:OnInitialize()
 	
 	self.optionsFrames = {}
 	self.optionsFrames.general = AceConfigDialog:AddToBlizOptions("GetErDone", nil, nil, "general")
+
+
+
+	--self.optionsFrames.general.obj.frame:AddChild(btn)
+	self.optionsFrames.general.obj.frame:SetScale(1)
+	print(self.optionsFrames.general.obj.frame:GetRegions()[0])
+	for k,v in pairs(self.optionsFrames.general.obj.frame:GetRegions()) do
+		print(k, v)
+	end
+	
 
 
 	--Event Registry--
