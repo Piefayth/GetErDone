@@ -4,4 +4,5 @@ GetErDone
 WoW Progress Tracking Addon
 
 TODO:
-- Separate character and server names
+- Implement groups
+- Find account region (currently set to be US for everyone)
