@@ -4,6 +4,7 @@ local AceConfig = LibStub("AceConfig-3.0")
 local AceConfigDialog = LibStub("AceConfigDialog-3.0")
 local AceDB = LibStub("AceDB-3.0")
 local AceDBOptions = LibStub("AceDBOptions-3.0")
+local AceGUI = LibStub("AceGUI-3.0")
 
 local events = 	{
 				["monster"] = {
@@ -37,13 +38,18 @@ local options = {
 							GetErDone:AddTrackable(v, "monsters")
 						end
 					},
-					separator = {
-						order = 3,
-						type = "description",
-						name = "",
+					trackitem = {
+						order = 2,
+						type = "input",
+						name = "New Item",
+						desc = "Add a new trackable item ID",
+						pattern = "(%d+)",
+						set = function(k,v)
+							GetErDone:AddTrackable(v, "items")
+						end
 					},
 					trackquest = {
-						order = 4,
+						order = 3,
 						type = "input",
 						name = "New Quest",
 						desc = "Add a new trackable quest flag ID",
@@ -53,12 +59,12 @@ local options = {
 						end
 					},
 					separator = {
-						order = 5,
+						order = 4,
 						type = "description",
 						name = "",
 					},
 					frequency = {
-						order = 6,
+						order = 5,
 						type = "select",
 						name = "Frequency",
 						desc = "How often should this item reset?",
@@ -72,7 +78,7 @@ local options = {
 						end
 					},
 					character = {
-						order = 7,
+						order = 6,
 						type = "select",
 						name = "Character",
 						desc = "Which character is this task for? Your character will not appear in this list until you've logged in with it.",
@@ -91,7 +97,39 @@ local options = {
 						get = function()
 							return GetErDone:GetOption("character")
 						end
-					}
+					},
+					quantity = {
+						order = 7,
+						type = "input",
+						name = "Quantity",
+						desc = "How many monsters/items/quests to count as complete?",
+						pattern = "(%d+)",
+						set = function(k,v)
+							GetErDone:ApplyOption(k,v)
+						end,
+						get = function()
+							return GetErDone:GetOption("quantity")
+						end
+					},
+					separator2 = {
+						order = 8,
+						type = "description",
+						name = "",
+					},
+					compound = {
+						order = 9,
+						type = "select",
+						name = "Objective Group",
+						desc = "",
+						values = function()
+							t = {["None"] = "None"}
+							for k, v in pairs(GetErDone:GetOption("compound")) do
+								print(k..v)
+								t[k] = v
+							end
+							return t
+						end,
+					},
 				},
 			},
 		},
@@ -107,6 +145,8 @@ function GetErDone:ApplyOption(k,v)
 		self.db.global.frequency = v
 	elseif (k[2] == "character") then
 		self.db.global.character = v
+	elseif (k[2] == "quantity") then
+		self.db.global.quantity = v
 	end
 end
 
@@ -120,17 +160,20 @@ function GetErDone:AddTrackable(id, type)
 		self.db.global.trackables[type] = {}
 	end
 	
-	if self.db.global.trackables[type][id] == nil and self.db.global.character ~= "all" then
+	if self.db.global.trackables[type][id] == nil and self.db.global.character ~= "All" then
 		self.db.global.trackables[type][id] = 
 		{
 		["frequency"] = self.db.global.frequency,
  		["characters"] = {self.db.global.character},
- 		["reset"] = GetErDone:nextReset(self.db.global.frequency, "US")
+ 		["reset"] = GetErDone:nextReset(self.db.global.frequency, "US"),
+ 		["quantity"] = self.db.global.quantity,
+ 		["complete"] = {[self.db.global.character] = 0}
     	}
-  	elseif self.db.global.character ~= "all" then
+  	elseif self.db.global.character ~= "All" then
     	table.insert(self.db.global.trackables[type][id]["characters"], self.db.global.character)
+    	self.db.global.trackables[type][id]["complete"][self.db.global.character] = 0
   	else
-    	self.db.global.trackables[type][id] = self.db.global.characters
+    	self.db.global.trackables[type][id]["characters"] = self.db.global.characters
   	end
 end
 
@@ -156,8 +199,11 @@ function GetErDone:OnEnable()
 	if self.db.global.trackables == nil then self.db.global.trackables = {} end
 	if self.db.global.trackables.monsters == nil then self.db.global.trackables.monsters = {} end
 	if self.db.global.trackables.quests == nil then self.db.global.trackables.quests = {} end
+	if self.db.global.trackables.quests == nil then self.db.global.trackables.quests = {} end
 	if self.db.global.frequency == nil then self.db.global.frequency = "" end
 	if self.db.global.characters == nil then self.db.global.characters = {} end
+	if self.db.global.compound == nil then self.db.global.compound = {} end
+	if self.db.global.quantity == nil then self.db.global.quantity = 1 end
 
 
 	name, server = UnitFullName("player")
