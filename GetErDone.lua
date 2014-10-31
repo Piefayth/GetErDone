@@ -28,34 +28,39 @@ options = {
 			name = "General Settings",
 			cmdInline = true,
 			args = {
-					trackmonster = {
+					trackableID = {
 						order = 1,
 						type = "input",
-						name = "New Monster",
-						desc = "Add a new trackable monster ID",
+						name = "New ID",
+						desc = "Add a new trackable monster, quest, or item ID",
 						pattern = "(%d+)",
 						set = function(k,v)
-							GetErDone:AddTrackable(v, MONSTER, "some gay monster", "1")
+							GetErDone:ApplyOption(k,v)
+						end,
+						get = function(k,v)
+							return GetErDone:GetOption("trackableID")
 						end
 					},
-					trackitem = {
+					typechoice = {
 						order = 2,
-						type = "input",
-						name = "New Item",
-						desc = "Add a new trackable item ID",
-						pattern = "(%d+)",
+						type = "select",
+						name = "ID Type",
+						desc = "What category fits this ID?",
+						values = {["monster"] = "Monster", ["quest"] = "Quest", ["item"] = "Item"},
 						set = function(k,v)
-							GetErDone:AddTrackable(v, ITEM, "an item", "1")
-						end
+							GetErDone:ApplyOption(k,v)
+						end,
+						get = function(k,v)
+							return GetErDone:GetOption("typechoice")
+						end,
 					},
-					trackquest = {
+					submitID = {
 						order = 3,
-						type = "input",
-						name = "New Quest",
-						desc = "Add a new trackable quest flag ID",
-						pattern = "(%d+)",
-						set = function(k,v)
-							GetErDone:AddTrackable(v, QUEST, "some thing", "1")
+						type = "execute",
+						name = "Add ID",
+						desc = "",
+						func = function(k,v)
+							GetErDone:AddTrackable(GetErDone:GetOption("trackableID"), GetErDone:GetOption("typechoice"), "some gay monster", GetErDone:GetOption("optCompound"))
 						end
 					},
 					separator = {
@@ -86,7 +91,6 @@ options = {
 						values = function()
 							t = {["All"] = "All"}
 							for k, v in pairs(GetErDone:GetOption("characters")) do
-								--print(k..v)
 								t[k] = v
 							end
 							return t
@@ -116,22 +120,53 @@ options = {
 						type = "description",
 						name = "",
 					},
-					compound = {
+					optCompound = {
 						order = 9,
 						type = "select",
 						name = "Objective Group",
 						desc = "",
 						values = function()
 							t = {["None"] = "None"}
-							for k, v in pairs(GetErDone:GetOption("compound")) do
-								print(k..v)
-								t[k] = v
+							for k, v in pairs(GetErDone:GetOption("compounds")) do
+								--print(k..v)
+								t[k] = v.name
 							end
 							return t
 						end,
+						set = function(k,v)
+							GetErDone:ApplyOption(k,v)
+						end,
+						get = function()
+							return GetErDone:GetOption("optCompound")
+						end,
+					},
+					newCompoundName = {
+						order = 10,
+						type = "input",
+						name = "New Objective Group",
+						set = function(k,v)
+							GetErDone:ApplyOption(k,v)
+						end,
+						get = function()
+							return GetErDone:GetOption("newCompoundName")
+						end
+					},
+					submitGroup = {
+						order = 11,
+						type = "execute",
+						name = "Add Group",
+						desc = "",
+						func = function(k,v)
+							--CALL FUNCTION TO CREATE NEW COMPOUND HERE--
+						end
+					},
+					separator2 = {
+						order = 89,
+						type = "description",
+						name = "",
 					},
 					test = {
-						order = 10,
+						order = 90,
 						type = "toggle",
 						name = "test",
 						desc = "",
@@ -139,7 +174,7 @@ options = {
 						get = function() return end,
 					},
 					reset = {
-						order = 11,
+						order = 91,
 						type = "toggle",
 						name = "reset",
 						desc = "",
@@ -152,7 +187,7 @@ options = {
 						get = function() return end,
 					},
 					testeventkill = {
-						order = 12,
+						order = 92,
 						type = "toggle",
 						name = "testeventkill",
 						desc = "",
@@ -160,7 +195,7 @@ options = {
 						get = function() end,
 					},
 					testeventkill1 = {
-						order = 13,
+						order = 93,
 						type = "toggle",
 						name = "testeventkill1",
 						desc = "",
@@ -173,7 +208,7 @@ options = {
 	}
 
 
-MONSTER = "monsters"
+MONSTER = "monster"
 QUEST = "quest"
 ITEM = "item"
 CUSTOM_PREFIX = "c_"
@@ -184,17 +219,17 @@ local debugMode = true
 --ApplyOption is for option retention between sessions. If you click "Daily" then reloadui, it retains that selection--
 --The default behavior makes dropdowns always blank, which is annoying--
 function GetErDone:ApplyOption(k,v)
-	if (k[2] == "frequency") then
-		self.db.global.options.frequency = v
-	elseif (k[2] == "character") then
-		self.db.global.options.character = v
-	elseif (k[2] == "quantity") then
-		self.db.global.options.quantity = v
-	end
+	self.db.global.options[k[2]] = v
 end
 
 function GetErDone:GetOption(v)
-	return self.db.global[v]
+	if v == "characters" then 
+		return self.db.global[v]
+	elseif v == "compounds" then
+		return self.db.global.compounds
+	else
+		return self.db.global.options[v]
+	end
 end
 
 function GetErDone:testeventkill()
@@ -263,6 +298,10 @@ function GetErDone:AddTrackable(id, type, name, owner)
     	end
     end
     self:updateOwner(owner, id)
+
+    --Zero Out Options Fields--
+	self.db.global.options.quantity = 0
+	self.db.global.options.trackableID = 0
 end
 
 function GetErDone:updateOwner(ownerId, childId)
