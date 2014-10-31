@@ -269,7 +269,10 @@ function GetErDone:GetOption(v)
 	else
 		option = self.db.global.options[v]
 	end
-	if option == nil then error() end
+	if option == nil then 
+		print (v)
+		error("Options Error", 3) 
+	end
 	return option
 end
 
@@ -311,11 +314,11 @@ function GetErDone:addCompound(compound_id)
 	compound.conditions = {["quantity"] = self:GetOption("quantity")}
 	self.db.global.options.character = self:GetOption("characters")
 	compound.characters = self:getCharactersFromOptions()
-	compound.reset = self:nextReset(self:GetOption("reset"), self:GetOption("region"))
+	--compound.reset = self:nextReset(self:GetOption("reset"), self:GetOption("region")) Don't know what this is, no such option as reset
 	compound.name = self:GetOption("newCompoundName")
-	for k, trackable in pairs(self:GetOption("trackablesToBeAdded")) do
+	--[[for k, trackable in pairs(self:GetOption("trackablesToBeAdded")) do
 		self:UpdateTrackableOwner(trackable.trackableID, trackable.typechoice, compound_id)
-	end
+	end]]-- Don't know what this is, no such option
 end
 
 function GetErDone:addNewCompound()
@@ -462,7 +465,7 @@ function GetErDone:updateOwner(ownerId, childId, childType)
 			table.insert(owner.comprisedOf, childId)
 		end
 	else
-		local idtype = {childId, childType]}
+		local idtype = {childId, childType}
 		if not self:contains(owner.comprisedOf, idtype) then
 			table.insert(owner.comprisedOf, idtype)
 		end
@@ -516,6 +519,7 @@ function GetErDone:OnEnable()
 	if self.db.global.options.quantity == nil then self.db.global.options.quantity = 1 end
 	if self.db.global.options.frequency == nil then self.db.global.options.frequency = "" end
 	if self.db.global.options.nextCompoundId == nil then self.db.global.options.nextCompoundId = 1 end
+	if self.db.global.options.newCompoundName == nil then self.db.global.options.newCompoundName = "" end
 	if self.db.global.tracked == nil then self.db.global.tracked = {} end
 
 
@@ -661,7 +665,7 @@ function GetErDone:OnLogin()
 	name, server = UnitFullName("player")
 	self.db.global.options.character = name..server
 	self.db.global.character = name..server
-	self.trackables = self:getAllTrackables()
+	--self.trackables = self:getAllTrackables()
 end
 
 function GetErDone:nextReset(frequency, region)
