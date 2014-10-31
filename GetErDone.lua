@@ -259,14 +259,18 @@ function GetErDone:ApplyOption(k,v)
 	self.db.global.options[k[2]] = v
 end
 
+
 function GetErDone:GetOption(v)
+	local option = nil
 	if v == "characters" then 
-		return self.db.global[v]
+		option = self.db.global[v]
 	elseif v == "compounds" then
-		return self.db.global.compounds
+		option = self.db.global.compounds
 	else
-		return self.db.global.options[v]
+		option = self.db.global.options[v]
 	end
+	if option == nil then error() end
+	return option
 end
 
 function GetErDone:testeventkill()
@@ -293,6 +297,32 @@ function GetErDone:addThing()
 	self:AddTrackable("2", MONSTER, "test2", id)
 end
 
+function GetErDone:addCompound(compound_id)
+	local compound
+	if compound_id == nil then
+		compound_id, compound = self:addNewCompound()
+	else
+		compound = self.db.global.compounds[compound_id]
+		if compound == nil then
+			error()
+		end
+	end
+
+	compound.conditions = {["quantity"] = self:GetOption("quantity")}
+	self.db.global.options.character = self:GetOption("characters")
+	compound.characters = self:getCharactersFromOptions()
+	compound.reset = self:nextReset(self:GetOption("reset"), self:GetOption("region"))
+	compound.name = self:GetOption("newCompoundName")
+	for k, trackable in pairs(self:GetOption("trackablesToBeAdded")) do
+		self:UpdateTrackableOwner(trackable.trackableID, trackable.typechoice, compound_id)
+	end
+end
+
+function GetErDone:addNewCompound()
+	local id, compound = self:createCompound()
+	self.db.global.compounds[id] = compound
+end
+
 function GetErDone:getCharactersFromOptions()
 	local chars = self.db.global.options.character
 	if chars == "All" then
@@ -315,6 +345,89 @@ function GetErDone:createCompound()
 	local id = GetErDone:generateNextCompoundId()
 	return id, compound
 end
+
+function GetErDone:disableCompound(compound_id, propagate, direction)
+	self.db.global.compounds[compound_id].active = false
+	if propagate then 
+		-- upstream
+		if direction == UP or direction == BOTH then
+			for k, id in pairs(self.db.global.compounds[compound_id].ownedBy) do
+				self:disableCompound(id, propagate, UP)
+			end
+		elseif direction == DOWN or direction == BOTH then
+			-- downstream
+			for k, id in pairs(self.db.global.compounds[compound_id].comprisedOf) do
+				if self:isCompoundId(id) then
+					self:disableCompound(id, propagate, DOWN)
+				end
+			end
+		end
+	end
+end
+
+function GetErDone:isCompoundId(id)
+	if type(id) == "string" then
+		return string.byte(id) == string.byte(CUSTOM_PREFIX)
+	end
+	return false
+end
+
+--[[
+function GetErDone:getAllDisabledCompounds () end
+
+function GetErDone:deleteTrackable(id, type)
+	local compoundsAffected = self.db.global.trackables[id][type].ownedBy
+	self.db.global.trackables[id][type] = nil
+	for k, v in pairs(compoundsAffected) do
+		self:removeTrackableFromCompound(v, id, type)
+	end
+end
+ 
+function GetErDone:deleteCompound(compound_id)
+	local parent = self.db.global.compounds[compound_id].ownedBy
+	local children = self.db.global.compounds[compound_id].comprisedOf
+	self.db.global.compounds[compound_id] = nil
+	for k, v in pairs(parents) do
+		self:removeCompoundFromCompound(compound_id, v)
+	end
+	for k, v in pairs(children) do
+		if self:isCompoundId(v) then
+			self:removeCompoundFromCompound(v, compound_id)
+		else
+			
+		end
+	end
+
+end]]
+--[[
+-- deletes trackables from compounds. if this empties the compound and ALLOW_EMPTY_COMPOUNDS is false, we then delete the compound and traverse the tree upwards to delete any others
+function GetErDone:removeTrackableFromCompound(compound_id, id, type)
+	if self:isSafeToRemoveFromParent(compound_id, id) then
+		for k, v in pairs(self.db.global.compounds[compound_id].comprisedOf) do
+			self.db.global.compounds[compound_id].comprisedOf[id][type] == nil
+			if not ALLOW_EMPTY_COMPOUNDS then
+				if self.db.global.compounds[compound_id].comprisedOf[id] == {} then
+					self.db.global.compounds[compound_id].comprisedOf[id] = nil
+					if self.db.global.compounds[compound_id].comprisedOf == {} then
+						self:deleteCompound(compound_id)
+					end
+				end
+			end
+		end
+	end
+end
+
+function GetErDone:removeCompoundFromCompound(compound_id, toRemove)
+	if self:isSafeToRemoveFromParent(compound_id, toRemove) then
+		self.db.global.compounds[compound_id].comprisedOf[toRemove] = 
+
+function GetErDone:isSafeToRemoveFromParent(compound_id, toRemove)
+	if self.db.global.compounds[compound_id] == nil then return false end
+	if self.db.global.compounds[compound_id].comprisedOf == nil or self.db.global.compounds[compound_id].comprisedOf == {} then return false end -- sanity checks
+	if self.db.global.compounds[compound_id].comprisedOf[id] == nil then return false end
+	return true
+end
+]]
 
 function GetErDone:generateNextCompoundId()
 	local id = self.db.global.options.nextCompoundId + 1
@@ -341,12 +454,18 @@ function GetErDone:AddTrackable(id, type, name, owner)
 	self.db.global.options.trackableID = 0
 end
 
-function GetErDone:updateOwner(ownerId, childId)
+function GetErDone:updateOwner(ownerId, childId, childType)
 	local owner = self.db.global.compounds[ownerId]
 	if owner == nil then error() end
-
-	if not self:contains(owner.comprisedOf, childId) then
-		table.insert(owner.comprisedOf, childId)
+	if childType == nil then
+		if not self:contains(owner.comprisedOf, childId) then
+			table.insert(owner.comprisedOf, childId)
+		end
+	else
+		local idtype = {childId, childType]}
+		if not self:contains(owner.comprisedOf, idtype) then
+			table.insert(owner.comprisedOf, idtype)
+		end
 	end
 end
 
@@ -526,23 +645,10 @@ function GetErDone:handleEventQuest(event)
 end
 
 function GetErDone:updateResets()
-	for k, v in pairs(getAllTrackables()) do
+	for k, v in pairs(self.db.global.compounds) do
 		v.reset = self:nextReset(v.reset, v.frequency)
 		self:debug("Updated " .. k .. " reset to " .. v.reset)
 	end
-end
-
-function GetErDone:getAllTrackables()
-	--tracks = {}
-	--for group, groups in pairs(self.db.global.trackables) do
-	--	if not group == "compound" then
-	--		for id, value in pairs(groups) do
-	--			tracks.insert(id, value)
-	--		end
-	--	end
-	--end
-	--return tracks
-	return self.db.global.trackables
 end
 
 function GetErDone:OnDisable()
@@ -634,9 +740,9 @@ function GetErDone:trim(s)
 end
 
 function GetErDone:contains(dict, value)
-	if dict == nil then 
+	if dict == nil or value == nil then 
 		print("what the haps my friends")
-		return false 
+		error()
 	end
 	for k, v in pairs(dict) do
 		if value == v then return true end
