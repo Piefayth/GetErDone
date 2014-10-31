@@ -202,6 +202,14 @@ options = {
 						set = function() GetErDone:testeventkill_one() end,
 						get = function() end,
 					},
+					testui = {
+						order = 94,
+						type = "toggle",
+						name = "testui",
+						desc = "",
+						set = function() GetErDone:testui() end,
+						get = function() end,
+					},
 				},
 			},
 		},
@@ -214,7 +222,36 @@ ITEM = "item"
 CUSTOM_PREFIX = "c_"
 local debugMode = true
 
+function GetErDone:testui()
+	local f = AceGUI:Create("Frame")
+	f:SetCallback("OnClose",function(widget) AceGUI:Release(widget) end)
+	f:SetTitle("Fuck This")
+	f:SetStatusText("Fuck You")
+	f:SetLayout("Flow")
 
+
+	local groupsContainer = AceGUI:Create("SimpleGroup")
+	local trackablesContainer = AceGUI:Create("SimpleGroup")
+	groupsContainer:SetFullWidth(false)
+	trackablesContainer:SetFullWidth(false)
+	groupsContainer:SetFullHeight(true)
+	trackablesContainer:SetFullHeight(true)
+	groupsContainer:SetLayout("Fill")
+	trackablesContainer:SetLayout("Fill")
+	f:AddChild(groupsContainer)
+	f:AddChild(trackablesContainer)
+
+	local groupsScroll = AceGUI:Create("ScrollFrame")
+	local trackablesScroll = AceGUI:Create("ScrollFrame")
+	groupsScroll:SetLayout("Flow")
+	trackablesScroll:SetLayout("Flow")
+	groupsContainer:AddChild(groupsScroll)
+	trackablesContainer:AddChild(trackablesScroll)
+
+	local labelTest = AceGUI:Create("InteractiveLabel")
+	labelTest:SetText("im mr gay r u")
+	groupsScroll:AddChild(labelTest)
+end
 
 --ApplyOption is for option retention between sessions. If you click "Daily" then reloadui, it retains that selection--
 --The default behavior makes dropdowns always blank, which is annoying--
