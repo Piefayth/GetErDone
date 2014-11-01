@@ -222,36 +222,7 @@ ITEM = "item"
 CUSTOM_PREFIX = "c_"
 local debugMode = true
 
-function GetErDone:testui()
-	local f = AceGUI:Create("Frame")
-	f:SetCallback("OnClose",function(widget) AceGUI:Release(widget) end)
-	f:SetTitle("Fuck This")
-	f:SetStatusText("Fuck You")
-	f:SetLayout("Flow")
 
-
-	local groupsContainer = AceGUI:Create("SimpleGroup")
-	local trackablesContainer = AceGUI:Create("SimpleGroup")
-	groupsContainer:SetFullWidth(false)
-	trackablesContainer:SetFullWidth(false)
-	groupsContainer:SetFullHeight(true)
-	trackablesContainer:SetFullHeight(true)
-	groupsContainer:SetLayout("Fill")
-	trackablesContainer:SetLayout("Fill")
-	f:AddChild(groupsContainer)
-	f:AddChild(trackablesContainer)
-
-	local groupsScroll = AceGUI:Create("ScrollFrame")
-	local trackablesScroll = AceGUI:Create("ScrollFrame")
-	groupsScroll:SetLayout("Flow")
-	trackablesScroll:SetLayout("Flow")
-	groupsContainer:AddChild(groupsScroll)
-	trackablesContainer:AddChild(trackablesScroll)
-
-	local labelTest = AceGUI:Create("InteractiveLabel")
-	labelTest:SetText("im mr gay r u")
-	groupsScroll:AddChild(labelTest)
-end
 
 --ApplyOption is for option retention between sessions. If you click "Daily" then reloadui, it retains that selection--
 --The default behavior makes dropdowns always blank, which is annoying--
@@ -656,6 +627,7 @@ function GetErDone:updateResets()
 end
 
 function GetErDone:OnDisable()
+	self.db.global.options.optCompound = ""
 end
 
 ---Event Handlers---
@@ -752,4 +724,214 @@ function GetErDone:contains(dict, value)
 		if value == v then return true end
 	end
 	return false
+end
+
+
+
+
+
+
+
+
+---------------------------------UI CODE-------------------------------------------
+
+function GetErDone:testui()
+	local f = AceGUI:Create("Frame")
+	local leftLabelgroup = {}
+
+	f:SetCallback("OnClose",function(widget) AceGUI:Release(widget) end)
+	f:SetTitle("Options")
+	f:SetLayout("Flow")
+	f:SetHeight(600)
+
+	----Scroll Groups Init---
+	local groupsContainer = AceGUI:Create("InlineGroup")
+	local trackablesContainer = AceGUI:Create("InlineGroup")
+
+	groupsContainer:SetLayout("Fill")
+	groupsContainer:SetRelativeWidth(0.5)
+	groupsContainer:SetHeight(350)
+
+	trackablesContainer:SetLayout("Fill")
+	trackablesContainer:SetRelativeWidth(0.5)
+	trackablesContainer:SetHeight(370)
+
+	f:AddChild(groupsContainer)
+	f:AddChild(trackablesContainer)
+	
+	
+
+	local groupsScroll = AceGUI:Create("ScrollFrame")
+	local trackablesScroll = AceGUI:Create("ScrollFrame")
+	groupsScroll:SetLayout("List")
+	trackablesScroll:SetLayout("List")
+	groupsScroll:SetRelativeWidth(0.5)
+	groupsContainer:AddChild(groupsScroll)
+	trackablesContainer:AddChild(trackablesScroll)
+	---Scroll Groups Data--
+	for k, v in pairs(self:getUnownedCompounds()) do
+		local label = AceGUI:Create("InteractiveLabel")
+		label:SetText(v .. " - " .. self.db.global.compounds[v].name)
+		label:SetHighlight(.5, .5, 0, .5)
+		label:SetCallback("OnClick", function(widget) self:clickGroupLabel(widget, v, groupsScroll, trackablesScroll) end) --v is the id of the compound
+		groupsScroll:AddChild(label)
+		table.insert(leftLabelgroup, label)
+	end
+
+	---Adding New Trackable and a group to contain them---
+
+	local newCompoundGroup = AceGUI:Create("InlineGroup")
+	local editCompound = AceGUI:Create("EditBox")
+	local dropdownCompound = AceGUI:Create("Dropdown")
+	local buttonCompound = AceGUI:Create("Button")
+
+	buttonCompound:SetText("Add Group")
+
+	editCompound:SetCallback("OnEnterPressed", function(widget, event, text) self:submitCompoundEdit(editCompound, text) end)
+
+	newCompoundGroup:SetRelativeWidth(0.5)
+	newCompoundGroup:SetLayout("List")
+
+	local newTrackableGroup = AceGUI:Create("InlineGroup")
+	local editID = AceGUI:Create("EditBox")
+	local dropdownID = AceGUI:Create("Dropdown")
+	local buttonID = AceGUI:Create("Button")
+
+	buttonID:SetText("Add ID")
+
+	editID:SetCallback("OnEnterPressed", function(widget, event, text) self:submitIDEdit(editID, text) end)
+
+	newTrackableGroup:SetRelativeWidth(0.5)
+	newTrackableGroup:SetLayout("List")
+
+
+
+	f:AddChild(newCompoundGroup)
+	newCompoundGroup:AddChild(editCompound) 
+	newCompoundGroup:AddChild(dropdownCompound) 
+	newCompoundGroup:AddChild(buttonCompound)
+	
+	f:AddChild(newTrackableGroup)
+	newTrackableGroup:AddChild(editID)
+	newTrackableGroup:AddChild(dropdownID)
+	newTrackableGroup:AddChild(buttonID)
+	
+	f:DoLayout() --HOLY MOTHERFUCKING SHIT IS THIS LINE IMPORTANT
+
+	
+end
+
+function GetErDone:clickGroupLabel(widget, compoundID, groupFrame, trackableFrame, isUp)
+	trackableFrame:ReleaseChildren()
+	groupFrame:ReleaseChildren()
+
+	if isUp then
+		if compoundID == nil then 
+			self.db.global.options.optCompound = ""
+		else
+			self.db.global.options.optCompound = self.db.global.compounds[compoundID].ownedBy
+		end
+	else
+		self.db.global.options.optCompound = compoundID
+	end
+
+	cid = self.db.global.options.optCompound
+
+	--Repopulate Left Window
+	for k, v in pairs(self:getCompoundChildren(cid)) do
+		local label = AceGUI:Create("InteractiveLabel")
+		label:SetText(v .. " - " .. self.db.global.compounds[v].name)
+		label:SetHighlight(.5, .5, 0, .5)
+		label:SetCallback("OnClick", function(widgetx) self:clickGroupLabel(widgetx, v, groupFrame, trackableFrame, false) end)
+		groupFrame:AddChild(label)
+	end
+
+	--Add an "up one level" button if we're not at the top level
+	if cid ~= "" then
+		local label = AceGUI:Create("InteractiveLabel")
+		label:SetText("Up One Level ^")
+		label:SetHighlight(.5, .5, 0, .5)
+		label:SetCallback("OnClick", function(widgetx) self:clickGroupLabel(widgetx, cid, groupFrame, trackableFrame, true) end)
+		groupFrame:AddChild(label)
+	end
+
+	--Repopulate Right Window
+	if not isUp then 
+		target = compoundID 
+	else 
+		target = self:getTrackableChildren(self:getCompoundParent(compoundID))
+	end
+
+	for k, v in pairs(self:getTrackableChildren(target)) do
+		local label = AceGUI:Create("InteractiveLabel")
+		label:SetText(self.db.global.trackables[v[1]][v[2]].name)
+		label:SetHighlight(.5, .5, 0, .5)
+		label:SetCallback("OnClick", function(widgetx) self:clickTrackableLabel(widgetx, {v[1], v[2]}, trackableFrame) end)
+		trackableFrame:AddChild(label)
+	end
+end
+
+function GetErDone:clickTrackableLabel(widget, trackableID, trackableFrame)
+
+end
+
+function GetErDone:submitIDEdit(widget, text)
+	if string.match(text, '%d') then
+		self.db.global.options.trackableID = text
+	end
+	self:populateIDEdit(widget)
+end
+
+function GetErDone:populateIDEdit(widget)
+	widget:SetText(self.db.global.options.trackableID)
+end
+
+function GetErDone:submitCompoundEdit(widget, text)
+	self.db.global.options.newCompoundName = text
+end
+
+function GetErDone:populateCompoundEdit(widget)
+	widget:SetText(self.db.global.options.newCompoundName)
+end
+
+function GetErDone:getCompoundParent(compoundID)
+	return self.db.global.compounds[compoundID]["ownedBy"]
+end
+
+function GetErDone:getTrackableChildren(owner)
+	t = {}
+      for k,v in pairs(self.db.global.trackables) do
+      	for kk,vv in pairs(v) do
+	        if vv["ownedBy"] == owner then
+	          table.insert(t,{k, kk}) --We're making a able of {id, type}
+	        end
+	    end
+      end
+    return t
+end
+
+--Name is a little ambiguous, this is the equivalent of "getTrackableChildren"
+--@owner = compoundid
+function GetErDone:getCompoundChildren(owner)
+	t = {}
+	for k,v in pairs(self.db.global.compounds) do
+		if v["ownedBy"] == owner then
+			table.insert(t,k)
+		end
+	end
+	if t == {} then 
+		return self:getUnownedCompounds()
+	else 
+		return t 
+	end
+end
+
+function GetErDone:getUnownedCompounds()
+	t = {}
+		for k,v in pairs(self.db.global.compounds) do
+			if v["ownedBy"] == "" then
+				table.insert(t,k)
+			end
+		end
+	return t
 end
