@@ -7,14 +7,21 @@ local AceDBOptions = LibStub("AceDBOptions-3.0")
 local AceGUI = LibStub("AceGUI-3.0")
 
 local events = 	{
-				["monster"] = {
-					{["event"] = "LOOT_OPENED", ["callback"] = "handleEventMonster"}, 
-					{["event"] = "OTHER_EVENT", ["callback"] = "handleEventMonster"}, 
-			   	},
-			  	["quest"] = {
-			  		{["event"] = "QUEST_TURNED_IN", ["callback"] = "handleEventQuest"},
-			  	}
-			 }
+	["monster"] = {
+		{
+			["event"] = "LOOT_OPENED", ["callback"] = "HandleEventMonster"
+		}, 
+		{
+			["event"] = "OTHER_EVENT", ["callback"] = "HandleEventMonster"
+		}, 
+	},
+	["quest"] = {
+		{
+			["event"] = "QUEST_TURNED_IN", ["callback"] = "HandleEventQuest"
+		},
+	}
+}
+
 
 local trackables = {}
 
@@ -210,6 +217,20 @@ options = {
 						set = function() GetErDone:testui() end,
 						get = function() end,
 					},
+					test_reset = {
+						order = 95, 
+						type = "execute",
+						name = "test_reset",
+						desc = "",
+						func = function() GetErDone:test_reset() end,
+					},
+					test_increment = {
+						order = 96,
+						type = "execute",
+						name = "test_increment",
+						desc = "",
+						func = function() GetErDone:test_increment() end,
+					},
 				},
 			},
 		},
@@ -220,6 +241,19 @@ MONSTER = "monster"
 QUEST = "quest"
 ITEM = "item"
 CUSTOM_PREFIX = "c_"
+COMPOUND_LEVEL_BOTTOM = 0
+COMPOUND_LEVEL_MID = 1
+COMPOUND_LEVEL_TOP = 2
+COMPLETE_INCREMENT = 0
+COMPLETE_ZERO = 1
+RESET_DAILY = "daily"
+RESET_WEEKLY = "weekly"
+RESET_MONTHLY = "monthly"
+REGION_US = 1
+REGION_KR = 2
+REGION_EU = 3
+REGION_TW = 4
+REGION_CN = 5
 local debugMode = true
 
 
@@ -241,35 +275,11 @@ function GetErDone:GetOption(v)
 		option = self.db.global.options[v]
 	end
 	if option == nil then 
-		print (v)
-		error("Options Error", 3) 
+		error("GetOption: unable to find option") 
 	end
 	return option
 end
 
-function GetErDone:testeventkill()
-	local guid1 = "Creature-0-1403-870-139-1-0000D2B633"
-	local guid2 = "Creature-0-1403-870-139-2-0000D2B633"
-	self:checkEvent(MONSTER, guid1)
-	self:checkEvent(MONSTER, guid2)
-end
-
-function GetErDone:testeventkill_one()
-	local guid1 = "Creature-0-1403-870-139-1-0000D2B633"
-	self:checkEvent(MONSTER, guid1)
-end
-
-function GetErDone:addThing()
-	local id, compound = self:createCompound()
-	compound.conditions = {["quantity"] = 2}
-	self.db.global.options.character = "All"
-	compound.characters = self:getCharactersFromOptions()
-	compound.reset = self:nextReset("daily", "EU")
-	compound.name = "test compound"
-	self.db.global.compounds[id] = compound
-	self:AddTrackable("1", MONSTER, "test1", id)
-	self:AddTrackable("2", MONSTER, "test2", id)
-end
 
 function GetErDone:addCompound(compound_id)
 	local compound
@@ -278,18 +288,11 @@ function GetErDone:addCompound(compound_id)
 	else
 		compound = self.db.global.compounds[compound_id]
 		if compound == nil then
-			error()
+			error("addCompound: compound present in db but null")
 		end
 	end
 
-	compound.conditions = {["quantity"] = self:GetOption("quantity")}
-	self.db.global.options.character = self:GetOption("characters")
-	compound.characters = self:getCharactersFromOptions()
-	--compound.reset = self:nextReset(self:GetOption("reset"), self:GetOption("region")) Don't know what this is, no such option as reset
 	compound.name = self:GetOption("newCompoundName")
-	--[[for k, trackable in pairs(self:GetOption("trackablesToBeAdded")) do
-		self:UpdateTrackableOwner(trackable.trackableID, trackable.typechoice, compound_id)
-	end]]-- Don't know what this is, no such option
 end
 
 function GetErDone:addNewCompound()
@@ -346,81 +349,31 @@ function GetErDone:isCompoundId(id)
 	return false
 end
 
---[[
-function GetErDone:getAllDisabledCompounds () end
-
-function GetErDone:deleteTrackable(id, type)
-	local compoundsAffected = self.db.global.trackables[id][type].ownedBy
-	self.db.global.trackables[id][type] = nil
-	for k, v in pairs(compoundsAffected) do
-		self:removeTrackableFromCompound(v, id, type)
-	end
-end
- 
-function GetErDone:deleteCompound(compound_id)
-	local parent = self.db.global.compounds[compound_id].ownedBy
-	local children = self.db.global.compounds[compound_id].comprisedOf
-	self.db.global.compounds[compound_id] = nil
-	for k, v in pairs(parents) do
-		self:removeCompoundFromCompound(compound_id, v)
-	end
-	for k, v in pairs(children) do
-		if self:isCompoundId(v) then
-			self:removeCompoundFromCompound(v, compound_id)
-		else
-			
-		end
-	end
-
-end]]
---[[
--- deletes trackables from compounds. if this empties the compound and ALLOW_EMPTY_COMPOUNDS is false, we then delete the compound and traverse the tree upwards to delete any others
-function GetErDone:removeTrackableFromCompound(compound_id, id, type)
-	if self:isSafeToRemoveFromParent(compound_id, id) then
-		for k, v in pairs(self.db.global.compounds[compound_id].comprisedOf) do
-			self.db.global.compounds[compound_id].comprisedOf[id][type] == nil
-			if not ALLOW_EMPTY_COMPOUNDS then
-				if self.db.global.compounds[compound_id].comprisedOf[id] == {} then
-					self.db.global.compounds[compound_id].comprisedOf[id] = nil
-					if self.db.global.compounds[compound_id].comprisedOf == {} then
-						self:deleteCompound(compound_id)
-					end
-				end
-			end
-		end
-	end
-end
-
-function GetErDone:removeCompoundFromCompound(compound_id, toRemove)
-	if self:isSafeToRemoveFromParent(compound_id, toRemove) then
-		self.db.global.compounds[compound_id].comprisedOf[toRemove] = 
-
-function GetErDone:isSafeToRemoveFromParent(compound_id, toRemove)
-	if self.db.global.compounds[compound_id] == nil then return false end
-	if self.db.global.compounds[compound_id].comprisedOf == nil or self.db.global.compounds[compound_id].comprisedOf == {} then return false end -- sanity checks
-	if self.db.global.compounds[compound_id].comprisedOf[id] == nil then return false end
-	return true
-end
-]]
-
 function GetErDone:generateNextCompoundId()
 	local id = self.db.global.options.nextCompoundId + 1
 	self.db.global.options.nextCompoundId = id
 	return CUSTOM_PREFIX .. id
 end
 
-function GetErDone:AddTrackable(id, type, name, owner)
+function GetErDone:AddTrackable(id, type, name, owner, frequency, characters, quantity, trackableFrame)
 	self:ensureTrackable(id)
 	if self.db.global.trackables[id][type] == nil then
 		self.db.global.trackables[id][type] = {
 			["name"] = name,
 			["ownedBy"] = owner,
+			["frequency"] = frequency,
+			["reset"] = self:NextReset(frequency, REGION_US),
+			["characters"] = characters,
+			["completionQuantity"] = quantity
     	}
     else
     	if not self:contains(self.db.global.trackables[id][type].ownedBy, owner) then
     		table.insert(self.db.global.trackables[id][type].ownedBy, owner)
     	end
     end
+
+    self:refreshTrackableList(trackableFrame)
+
     self:updateOwner(owner, id)
 
     --Zero Out Options Fields--
@@ -430,7 +383,7 @@ end
 
 function GetErDone:updateOwner(ownerId, childId, childType)
 	local owner = self.db.global.compounds[ownerId]
-	if owner == nil then error() end
+	if owner == nil then error("updateOwner: ownerId points to null compound") end
 	if childType == nil then
 		if not self:contains(owner.comprisedOf, childId) then
 			table.insert(owner.comprisedOf, childId)
@@ -481,7 +434,6 @@ function GetErDone:OnInitialize()
 end
 
 function GetErDone:OnEnable()
-	self:debug("hi")
 	---First Time Setup l---
 	if self.db.global.trackables == nil then self.db.global.trackables = {} end
 	if self.db.global.characters == nil then self.db.global.characters = {} end
@@ -491,7 +443,7 @@ function GetErDone:OnEnable()
 	if self.db.global.options.frequency == nil then self.db.global.options.frequency = "" end
 	if self.db.global.options.nextCompoundId == nil then self.db.global.options.nextCompoundId = 1 end
 	if self.db.global.options.newCompoundName == nil then self.db.global.options.newCompoundName = "" end
-	if self.db.global.tracked == nil then self.db.global.tracked = {} end
+	if self.db.global.region == nil then self.db.global.region = GetCurrentRegion() end
 
 
 	name, server = UnitFullName("player")
@@ -502,184 +454,141 @@ function GetErDone:OnEnable()
 	self:registerHandlers()
 end
 
-function GetErDone:checkEvent(type, guid)
-	if type == MONSTER then
-		local npcId = self:getNpcId(guid)
-		if npcId == nil then return end
-		self:debug(npcId)
-		local dbNpc = self.db.global.trackables[npcId]
-		self:debug(dbNpc)
-		if dbNpc ~= nil then
-			local dbNpcType = dbNpc[type]
-			if dbNpcId ~= nil then
-				local compounds = dbNpcId.ownedBy
-				if compounds ~= nil then
-					for k, compound_id in pairs(compounds) do
-						self:debug("Passing message to compound id " .. compound_id)
-						self:informCompound(compound_id, dbNpcId)
-					end
-				end
-			end
-		end
-		return
-	end
-end
-
--- TODO need to make this deal with multiple things at once? higher quantities etc? I HAVE NO IDEA
-function GetErDone:informCompound(compound_id, trackable)
-	local compound = self.db.global.compounds[compound_id]
-
-	if compound == nil then return end
-	if not self:shouldTrack(compound) then return end
-
-	self:debug("Informing compound " .. compound.name)
-
-	-- call recursively for any compound compounds
-	for k, owner in pairs(compound.ownedBy) do
-		if owner ~= nil then self:informCompound(owner, compound_id) end
-	end
-
-	self:setCompleted(compound_id)
-end
-
-function GetErDone:shouldTrack(compound)
-	if not compound.active then return false end
-	for k, character in pairs(compound.characters) do
-		if character == self.db.global.character then
-			self:debug("Setting " .. compound.name .. " to completed.")
-			return true
-		end
-	end
-	return false
-end
-
-function GetErDone:setCompleted(compound_id)
-	local compound = self.db.global.compounds[compound_id]
-	if compound == nil then 
-		self:debug("Compound id " .. compound_id .. " referred to a null compound")
-		return 
-	end
-	self:debug("Setting " .. compound_id .. " to completed")
-	local character = self.db.global.character
-	self:ensureTracked(compound_id, character)
-
-	if not self.db.global.tracked[compound_id][character].completed then
-		self.db.global.tracked[compound_id][character].quantityCompleted = self.db.global.tracked[compound_id][character].quantityCompleted + 1
-		if self.db.global.tracked[compound_id][character].quantityCompleted >= compound.conditions.quantity then
-			self.db.global.tracked[compound_id][character].completed = true
-			self:debug("compound id " .. compound_id .. " successfully completed")
-		end
-	end
-end
-
-function GetErDone:ensureTracked(compound_id, character_name)
-	if self.db.global.tracked == nil then self.db.global.tracked = {} end
-	if self.db.global.tracked[compound_id] == nil then self.db.global.tracked[compound_id] = {} end
-	if self.db.global.tracked[compound_id][character_name] == nil then self.db.global.tracked[compound_id][character_name] = {} end
-	if self.db.global.tracked[compound_id][character_name].completed == nil then self.db.global.tracked[compound_id][character_name].completed = false end
-	if self.db.global.tracked[compound_id][character_name].quantityCompleted == nil then self.db.global.tracked[compound_id][character_name].quantityCompleted = 0 end
-end
-
-
--- sorry rarity guy
-function GetErDone:getNpcId(guid)
-	if guid then
-		local unit_type, _, _, _, _, mob_id = strsplit('-', guid)
-		return mob_id
-	end
-	return 0
-end
+-- EVENT HANDLING -- 
 
 function GetErDone:registerHandlers()
 	for type, eventObj in pairs(events) do
 		for k, eventy in pairs(eventObj) do
-			self:debug(eventy.callback .. " registered for event " .. eventy.event)
 			self:RegisterEvent(eventy.event, eventy.callback, eventy.event)
 		end
 	end
 end
 
-function GetErDone:handleEventMonster(event) 
+function GetErDone:HandleEventMonster(event) 
 	if event == "LOOT_OPENED" then
 		local numChecked = 0
 		local numItems = GetNumLootItems()
 		for slotId = 1, numItems, 1 do
+			-- TODO deal with duplicate items ie multiple drops from the same mob
 			mobList = { GetLootSourceInfo(slotId) }
 			for k, v in pairs(mobList) do
 				if v and type(v) == "string" then
 					self:debug("Checking mob id " .. v)
-					self:checkEvent(MONSTER, v)
+					self:CheckEvent(MONSTER, v)
 				end
 			end
 		end
 	end
 end
 
-function GetErDone:handleEventQuest(event)
-	-- TODO
+function GetErDone:HandleEventQuest(event)
+	print("butts")
 end
 
-function GetErDone:updateResets()
-	for k, v in pairs(self.db.global.compounds) do
-		v.reset = self:nextReset(v.reset, v.frequency)
-		self:debug("Updated " .. k .. " reset to " .. v.reset)
+function GetErDone:CheckEvent(type, guid)
+	if type == MONSTER then
+		local id = self:getNpcId(guid)
+		if id == nil then return end
+
+		if self.db.global.trackables[id] ~= nil and self.db.global.trackables[id][type] ~= nil then
+			self:CompleteTrackable(id, type, COMPLETE_INCREMENT)
+		end
 	end
 end
 
-function GetErDone:OnDisable()
-	self.db.global.options.optCompound = ""
+--------------------------------------------------------------------
+-------------------------- TRACKING --------------------------------
+--------------------------------------------------------------------
+
+function GetErDone:CompleteTrackable(id, type, status)
+	local trackable = self.db.global.trackables[id][type]
+	if trackable == nil then
+		error("CompleteTrackable: null trackable")
+	end
+
+	if status == COMPLETE_INCREMENT then
+		if trackable.characters[self.db.global.character] < trackable.completionQuantity then
+			trackable.characters[self.db.global.character] = trackable.characters[self.db.global.character] + 1
+		end
+	elseif status == COMPLETE_ZERO then
+		for k, v in pairs(trackable.characters) do
+			trackable.characters[k] = 0
+		end 
+	end	
 end
 
----Event Handlers---
+--------------------------------------------------------------------
+----------------------- TRACKABLE RESETS ---------------------------
+--------------------------------------------------------------------
 
----OnLogin defaults the "character" dropdown to the character you're currently logged in as.
-function GetErDone:OnLogin()
-	name, server = UnitFullName("player")
-	self.db.global.options.character = name..server
-	self.db.global.character = name..server
-	--self.trackables = self:getAllTrackables()
+function GetErDone:UpdateResets()
+	-- TODO null checking
+	for id, types in pairs(self.db.global.trackables) do
+		for type, trackable in pairs(types) do
+			local newReset = self:NextReset(trackable.frequency, self.db.global.region)
+			if not self:ResetEquals(newReset, trackable.reset) then
+				self:debug("Updating reset and completion on trackable " .. id .. ":" .. type)
+				trackable.reset = newReset
+				self:CompleteTrackable(id, type, COMPLETE_ZERO)
+			end
+		end
+	end
 end
 
-function GetErDone:nextReset(frequency, region)
+function GetErDone:ResetEquals(a, b)
+	if a == nil or b == nil then
+		error("ResetEquals: null reset")
+	end
+
+	if a.day ~= b.day then return false end
+	if a.month ~= b.month then return false end
+	if a.hour ~= b.hour then return false end
+	if a.year ~= b.year then return false end
+	return true
+end
+
+function GetErDone:NextReset(frequency, region)
   currentDate = date("!*t")
   --currentDate = {["wday"] = 4, ["day"] = 1, ["month"] = 11, ["year"] = 2014, ["hour"] = 12}
   monthdays = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31}
-  if currentDate["year"] % 4 == 0 then monthdays[2] = 29 end
+  if currentDate.year % 4 == 0 then monthdays[2] = 29 end
 
-  resetDate = {["year"] = "", ["day"] = "", ["month"] = "", ["hour"] = ""}
+  resetDate = {["year"] = nil, ["day"] = nil, ["month"] = nil, ["hour"] = nil}
 
-  regionDayMap = {["US"] = {["day"] = 3, ["hour"] = 11},
-  				  ["EU"] = {["day"] = 4, ["hour"] = 2},
-  				  ["AU"] = {["day"] = 2, ["hour"] = 17}}
+  regionDayMap = {[REGION_US] = {["day"] = 3, ["hour"] = 11},
+  				  [REGION_EU] = {["day"] = 4, ["hour"] = 2},
+  				  --["AU"] = {["day"] = 2, ["hour"] = 17}
+  				}
 
   daysRemaining = 0
   regionalResetHour = regionDayMap[region].hour
-  if frequency == "weekly" then
+  if frequency == RESET_WEEKLY then
   	regionalResetDay = regionDayMap[region].day
-    if currentDate["wday"] > regionalResetDay then --If it's after the resetDate day
-      daysRemaining = regionalResetDay + 7 - currentDate["wday"]
-    elseif currentDate["wday"] < regionalResetDay then
-      daysRemaining = regionalResetDay - currentDate["wday"] --If it's Sunday or Monday
-    elseif currentDate["wday"] == regionalResetDay then -- If it's Tuesday
-      if currentDate["hour"] < regionalResetHour then daysRemaining = 0 end
-      if currentDate["hour"] >= regionalResetHour then daysRemaining = 7 end
+    if currentDate.wday > regionalResetDay then --If it's after the resetDate day
+      daysRemaining = regionalResetDay + 7 - currentDate.wday
+    elseif currentDate.wday < regionalResetDay then
+      daysRemaining = regionalResetDay - currentDate.wday --If it's Sunday or Monday
+    elseif currentDate.wday == regionalResetDay then -- If it's Tuesday
+      if currentDate.hour < regionalResetHour then daysRemaining = 0 end
+      if currentDate.hour >= regionalResetHour then daysRemaining = 7 end
     end
-    resetDate = GetErDone:addDays(resetDate, currentDate, daysRemaining)
-  elseif frequency == "daily" then
-    resetDate = GetErDone:addDays(resetDate, currentDate, 1)
-  elseif frequency == "monthly" then
-    daysRemaining = monthdays[currentDate["month"]] - currentDate["day"] + 1
-    resetDate = GetErDone:addDays(resetDate, currentDate, daysRemaining)
+    resetDate = GetErDone:AddDays(resetDate, currentDate, daysRemaining)
+  elseif frequency == RESET_DAILY then
+    resetDate = GetErDone:AddDays(resetDate, currentDate, 1)
+  elseif frequency == RESET_MONTHLY then
+    daysRemaining = monthdays[currentDate.month] - currentDate.day + 1
+    resetDate = GetErDone:AddDays(resetDate, currentDate, daysRemaining)
   elseif frequency == "once" then
+  	-- TODO
   	return 0
   else
-    error()
+    error("nextReset: unsupported frequency: " .. frequency)
   end
-  resetDate["hour"] = regionalResetHour
+  resetDate.hour = regionalResetHour
   return resetDate
 end
 
-function GetErDone:addDays(resetDate, currentDate, days)
+function GetErDone:AddDays(resetDate, currentDate, days)
   monthdays = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31}
   DECEMBER = 12
   JANUARY = 1
@@ -705,6 +614,22 @@ function GetErDone:addDays(resetDate, currentDate, days)
   return resetDate
 end
 
+function GetErDone:OnDisable()
+	self.db.global.options.optCompound = ""
+end
+
+---Event Handlers---
+
+---OnLogin defaults the "character" dropdown to the character you're currently logged in as.
+function GetErDone:OnLogin()
+	name, server = UnitFullName("player")
+	self.db.global.options.character = name..server
+	self.db.global.character = name..server
+	--self.trackables = self:getAllTrackables()
+end
+
+-- UTILS -- 
+
 function GetErDone:debug(message)
 	if debugMode then
 		print(message)
@@ -717,8 +642,7 @@ end
 
 function GetErDone:contains(dict, value)
 	if dict == nil or value == nil then 
-		print("what the haps my friends")
-		error()
+		error("contains: null table or value")
 	end
 	for k, v in pairs(dict) do
 		if value == v then return true end
@@ -726,10 +650,39 @@ function GetErDone:contains(dict, value)
 	return false
 end
 
+function GetErDone:getNpcId(guid)
+	if guid then
+		local unit_type, _, _, _, _, mob_id = strsplit('-', guid)
+		return mob_id
+	end
+	return 0
+end
 
+function GetErDone:GetCompoundLevel(compound_id)
+	local compound = self.db.global.compounds[compound_id]
+	if compound == nil then
+		error("GetCompoundLevel: null compound reference")
+	end
 
+	if compound.ownedBy == nil or compound.ownedBy == {} then
+		return COMPOUND_LEVEL_TOP
+	end
 
+	for k, v in pairs(compound.ownedBy) do
+		if self:isCompoundId(v) then
+			return COMPOUND_LEVEL_MID
+		end
+	end
+	return COMPOUND_LEVEL_BOTTOM
+end
 
+function GetErDone:GetNestedDepth(compound_id)
+	if self:GetCompoundLevel(compound_id) == COMPOUND_LEVEL_TOP then
+		return 0
+	else
+		return 1 + GetErDone:GetNestedDepth(self.db.global.compounds[compound_id].ownedBy)
+	end
+end
 
 
 
@@ -738,6 +691,8 @@ end
 function GetErDone:testui()
 	local f = AceGUI:Create("Frame")
 	local leftLabelgroup = {}
+
+	self.db.global.options.optCompound = ""
 
 	f:SetCallback("OnClose",function(widget) AceGUI:Release(widget) end)
 	f:SetTitle("Options")
@@ -798,13 +753,21 @@ function GetErDone:testui()
 	local trackableCharacter = AceGUI:Create("Dropdown")
 	local trackableFrequency = AceGUI:Create("Dropdown")
 	local addTrackableButton = AceGUI:Create("Button")
-
+	local trackableQuantity = AceGUI:Create("EditBox")
 
 
 	addTrackableButton:SetText("Add ID")
-	addTrackableButton:SetCallback("OnClick", function(widget, event) self:addTrackable)
+	addTrackableButton:SetCallback("OnClick", function(widget, event) self:AddTrackable(
+		self.db.global.options.trackableID, 
+		self.db.global.options.typechoice, 
+		"Something: " .. self.db.global.options.trackableID,
+		self.db.global.options.optCompound,
+		self.db.global.options.frequency,
+		self.db.global.options.character,
+		self.db.global.options.quantity,
+		trackablesScroll) end)
 
-	trackableID:SetCallback("OnEnterPressed", function(widget, event, text) self:submitIDEdit(editID, text) end)
+	trackableID:SetCallback("OnEnterPressed", function(widget, event, text) self:submitIDEdit(widget, event, text) end)
 	trackableID:SetLabel("ID")
 
 	trackableType:SetList({["monster"] = "Monster", ["item"] = "Item", ["quest"] = "Quest"})
@@ -818,6 +781,9 @@ function GetErDone:testui()
 	trackableCharacter:SetList(self:getCharacters())
 	trackableCharacter:SetCallback("OnValueChanged", function(widget, event, key) self:getTrackableCharacterDropdown(widget, event, key) end)
 	trackableCharacter:SetLabel("Character")
+
+	trackableQuantity:SetCallback("OnEnterPressed", function(widget, event, text) self:getTrackableQuantity(widget, event, text) end)
+	trackableQuantity:SetLabel("Quantity")
 
 	newTrackableGroup:SetRelativeWidth(0.5)
 	newTrackableGroup:SetLayout("List")
@@ -834,11 +800,24 @@ function GetErDone:testui()
 	newTrackableGroup:AddChild(trackableType)
 	newTrackableGroup:AddChild(trackableFrequency)
 	newTrackableGroup:AddChild(trackableCharacter)
+	newTrackableGroup:AddChild(trackableQuantity)
 	newTrackableGroup:AddChild(addTrackableButton)
 	
 	f:DoLayout() --HOLY MOTHERFUCKING SHIT IS THIS LINE IMPORTANT
 
 	
+end
+
+function GetErDone:refreshTrackableList(trackableFrame)
+	trackableFrame:ReleaseChildren()
+	for k, v in pairs(self:getTrackableChildren(self.db.global.options.optCompound)) do
+		local label = AceGUI:Create("InteractiveLabel")
+		label:SetText(self.db.global.trackables[v[1]][v[2]].name)
+		label:SetHighlight(.5, .5, 0, .5)
+		label:SetCallback("OnClick", function(widgetx) self:clickTrackableLabel(widgetx, {v[1], v[2]}, trackableFrame) end)
+		trackableFrame:AddChild(label)
+	end
+
 end
 
 function GetErDone:clickGroupLabel(widget, compoundID, groupFrame, trackableFrame, isUp)
@@ -922,15 +901,27 @@ function GetErDone:setTrackableCharacterDropdown(widget)
 	widget:SetValue(self.db.global.options.character)
 end
 
-function GetErDone:submitIDEdit(widget, text)
+function GetErDone:submitIDEdit(widget, event, text)
 	if string.match(text, '%d') then
 		self.db.global.options.trackableID = text
 	end
 	self:populateIDEdit(widget)
 end
 
+
 function GetErDone:populateIDEdit(widget)
 	widget:SetText(self.db.global.options.trackableID)
+end
+
+function GetErDone:getTrackableQuantity(widget, event, text)
+	if string.match(text, '%d') then
+		self.db.global.options.quantity = text
+	end
+	self:setTrackableQuantity(widget)
+end
+
+function GetErDone:setTrackableQuantity(widget)
+	widget:SetText(self.db.global.options.quantity)
 end
 
 function GetErDone:submitCompoundEdit(widget, text)
@@ -975,11 +966,11 @@ end
 
 function GetErDone:getUnownedCompounds()
 	t = {}
-		for k,v in pairs(self.db.global.compounds) do
-			if v["ownedBy"] == "" then
-				table.insert(t,k)
-			end
+	for k,v in pairs(self.db.global.compounds) do
+		if v["ownedBy"] == "" then
+			table.insert(t,k)
 		end
+	end
 	return t
 end
 
@@ -989,4 +980,96 @@ function GetErDone:getCharacters()
 		t[k] = v
 	end
 	return t
+end
+-----------------------------
+------------ TEST CODE ------
+-----------------------------
+
+
+function GetErDone:test_reset()
+	local resettest = { 
+		["resettest"] = { 
+			["name"] = "test",
+			["ownedBy"] = {},
+			["reset"] = { 
+				["hour"] = "4",
+				["day"] = "11",
+				["month"] = "11",
+				["year"] = "2013",
+			},
+			["frequency"] = "weekly",
+			["characters"] = {
+				[self.db.global.character] = 2,
+			},
+			["completionQuantity"] = 2,
+			["active"] = true
+		}
+	}
+	self.db.global.trackables["resettest"] = resettest
+
+	self:UpdateResets()
+
+	if self.db.global.trackables["resettest"]["resettest"].characters[self.db.global.character] == 0 then
+		print("reset test passed!")
+	end
+
+	self.db.global.trackables["resettest"] = nil
+end
+
+function GetErDone:test_increment()
+	local incrementtest = { 
+		["incrementtest"] = { 
+			["name"] = "test",
+			["ownedBy"] = {},
+			["reset"] = { 
+				["hour"] = "4",
+				["day"] = "11",
+				["month"] = "11",
+				["year"] = "2013",
+			},
+			["frequency"] = "weekly",
+			["characters"] = {
+				[self.db.global.character] = 0,
+			},
+			["completionQuantity"] = 2,
+			["active"] = true
+		}
+	}
+	self.db.global.trackables["incrementtest"] = incrementtest
+
+	self:CompleteTrackable("incrementtest", "incrementtest", COMPLETE_INCREMENT)
+
+	if self.db.global.trackables["incrementtest"]["incrementtest"].characters[self.db.global.character] == 1 then
+		print("increment test passed!")
+	end
+
+	self.db.global.trackables["incrementtest"] = nil
+end
+
+
+function GetErDone:testeventkill()
+	local guid1 = "Creature-0-1403-870-139-1-0000D2B633"
+	local guid2 = "Creature-0-1403-870-139-2-0000D2B633"
+	self:checkEvent(MONSTER, guid1)
+	self:checkEvent(MONSTER, guid2)
+end
+
+function GetErDone:testeventkill_one()
+	self.db.global.test = {["test"] = "a"}
+	local t = self.db.global.test
+	t.test = "b"
+	print(self.db.global.test.test)
+	self.db.global.test = nil
+end
+
+function GetErDone:addThing()
+	local id, compound = self:createCompound()
+	compound.conditions = {["quantity"] = 2}
+	self.db.global.options.character = "All"
+	compound.characters = self:getCharactersFromOptions()
+	compound.reset = self:nextReset("daily", "EU")
+	compound.name = "test compound"
+	self.db.global.compounds[id] = compound
+	self:AddTrackable("1", MONSTER, "test1", id)
+	self:AddTrackable("2", MONSTER, "test2", id)
 end
