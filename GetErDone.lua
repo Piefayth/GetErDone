@@ -414,7 +414,7 @@ function GetErDone:AddTrackable(id, type, name, owner)
 	if self.db.global.trackables[id][type] == nil then
 		self.db.global.trackables[id][type] = {
 			["name"] = name,
-			["ownedBy"] = { owner },
+			["ownedBy"] = owner,
     	}
     else
     	if not self:contains(self.db.global.trackables[id][type].ownedBy, owner) then
@@ -750,11 +750,11 @@ function GetErDone:testui()
 
 	groupsContainer:SetLayout("Fill")
 	groupsContainer:SetRelativeWidth(0.5)
-	groupsContainer:SetHeight(350)
+	groupsContainer:SetHeight(150)
 
 	trackablesContainer:SetLayout("Fill")
 	trackablesContainer:SetRelativeWidth(0.5)
-	trackablesContainer:SetHeight(370)
+	trackablesContainer:SetHeight(170)
 
 	f:AddChild(groupsContainer)
 	f:AddChild(trackablesContainer)
@@ -793,13 +793,31 @@ function GetErDone:testui()
 	newCompoundGroup:SetLayout("List")
 
 	local newTrackableGroup = AceGUI:Create("InlineGroup")
-	local editID = AceGUI:Create("EditBox")
-	local dropdownID = AceGUI:Create("Dropdown")
-	local buttonID = AceGUI:Create("Button")
+	local trackableID = AceGUI:Create("EditBox")
+	local trackableType = AceGUI:Create("Dropdown")
+	local trackableCharacter = AceGUI:Create("Dropdown")
+	local trackableFrequency = AceGUI:Create("Dropdown")
+	local addTrackableButton = AceGUI:Create("Button")
 
-	buttonID:SetText("Add ID")
 
-	editID:SetCallback("OnEnterPressed", function(widget, event, text) self:submitIDEdit(editID, text) end)
+
+	addTrackableButton:SetText("Add ID")
+	addTrackableButton:SetCallback("OnClick", function(widget, event) self:addTrackable)
+
+	trackableID:SetCallback("OnEnterPressed", function(widget, event, text) self:submitIDEdit(editID, text) end)
+	trackableID:SetLabel("ID")
+
+	trackableType:SetList({["monster"] = "Monster", ["item"] = "Item", ["quest"] = "Quest"})
+	trackableType:SetCallback("OnValueChanged", function(widget, event, key) self:getTrackableTypeDropdown(widget, event, key) end)
+	trackableType:SetLabel("Type")
+
+	trackableFrequency:SetList({["daily"] = "Daily", ["weekly"] = "Weekly", ["monthly"] = "Monthly", ["once"] = "Once"})
+	trackableFrequency:SetCallback("OnValueChanged", function(widget, event, key) self:getTrackableFrequencyDropdown(widget, event, key) end)
+	trackableFrequency:SetLabel("Frequency")
+
+	trackableCharacter:SetList(self:getCharacters())
+	trackableCharacter:SetCallback("OnValueChanged", function(widget, event, key) self:getTrackableCharacterDropdown(widget, event, key) end)
+	trackableCharacter:SetLabel("Character")
 
 	newTrackableGroup:SetRelativeWidth(0.5)
 	newTrackableGroup:SetLayout("List")
@@ -812,9 +830,11 @@ function GetErDone:testui()
 	newCompoundGroup:AddChild(buttonCompound)
 	
 	f:AddChild(newTrackableGroup)
-	newTrackableGroup:AddChild(editID)
-	newTrackableGroup:AddChild(dropdownID)
-	newTrackableGroup:AddChild(buttonID)
+	newTrackableGroup:AddChild(trackableID)
+	newTrackableGroup:AddChild(trackableType)
+	newTrackableGroup:AddChild(trackableFrequency)
+	newTrackableGroup:AddChild(trackableCharacter)
+	newTrackableGroup:AddChild(addTrackableButton)
 	
 	f:DoLayout() --HOLY MOTHERFUCKING SHIT IS THIS LINE IMPORTANT
 
@@ -856,9 +876,9 @@ function GetErDone:clickGroupLabel(widget, compoundID, groupFrame, trackableFram
 	end
 
 	--Repopulate Right Window
-	if not isUp then 
+	if not isUp then --If we want the children of the compound we just clicked
 		target = compoundID 
-	else 
+	else --If we want the children of the parent of the compound we just clicked
 		target = self:getTrackableChildren(self:getCompoundParent(compoundID))
 	end
 
@@ -873,6 +893,33 @@ end
 
 function GetErDone:clickTrackableLabel(widget, trackableID, trackableFrame)
 
+end
+
+function GetErDone:getTrackableTypeDropdown(widget, event, key)
+	self.db.global.options.typechoice = key
+	self:setTrackableTypeDropdown(widget)
+end
+
+function GetErDone:setTrackableTypeDropdown(widget)
+	widget:SetValue(self.db.global.options.typechoice)
+end
+
+function GetErDone:getTrackableFrequencyDropdown(widget, event, key)
+	self.db.global.options.frequency = key
+	self:setTrackableFrequencyDropdown(widget)
+end
+
+function GetErDone:setTrackableFrequencyDropdown(widget)
+	widget:SetValue(self.db.global.options.frequency)
+end
+
+function GetErDone:getTrackableCharacterDropdown(widget, event, key)
+	self.db.global.options.character = key
+	self:setTrackableCharacterDropdown(widget)
+end
+
+function GetErDone:setTrackableCharacterDropdown(widget)
+	widget:SetValue(self.db.global.options.character)
 end
 
 function GetErDone:submitIDEdit(widget, text)
@@ -933,5 +980,13 @@ function GetErDone:getUnownedCompounds()
 				table.insert(t,k)
 			end
 		end
+	return t
+end
+
+function GetErDone:getCharacters()
+	t = {["All"] = "All"}
+	for k, v in pairs(GetErDone:GetOption("characters")) do
+		t[k] = v
+	end
 	return t
 end
