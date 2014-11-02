@@ -387,6 +387,17 @@ function GetErDone:updateOwner(ownerId, childId, childType)
 	end
 end
 
+function GetErDone:updateChild(compound_id, child_id, child_type)
+	if child_type == nil then -- compound
+		if self:IsNullOrEmpty(self.db.global.compounds[child_id]) then error("updateChild: null child") end
+		self.db.global.compounds[child_id].ownedBy = compound_id
+	else
+		if self:IsNullOrEmpty(self.db.global.trackables[id]) or self:IsNullOrEmpty(self.db.global.trackables[id][type]) then
+			self:AddTrackable(child_id, child_type, self:LoadTrackableName(child_id, child_type), compound_id, "", "All", 1)
+		end
+	end
+end
+
 function GetErDone:prepareNames(names)
 	local newNames = {}
 	for k, v in pairs(names) do
@@ -452,8 +463,22 @@ end
 
 function GetErDone:LoadDefaults()
 	if self.db.global.defaultsLoaded == nil then
-		for compound_id, compound in pairs(defaults) do
-			local options = self.db.global.options
+		for id, type in pairs(defaults.trackables) do
+			local trackable = defaults[type]
+			self:AddTrackable(id, type, self:LoadTrackableName(id, type), nil, trackable.frequency, "All", trackable.quantity)
+		end
+		for compound_id, compound in pairs(defaults.compounds) do
+			self.db.global.options.newCompoundName = compound.name
+			self.db.global.options.optCompound = compound.ownedBy
+			self.db.global.options.compoundchildren = compound.displayChildren
+			self.db.global.options.compoundquantity = compound.childCompletionQuantity
+			self.db.global.options.compoundId = compound_id
+			self:addCompound()
+			self.db.global.compounds[compound_id].comprisedOf = compound.comprisedOf
+		end
+	self.db.global.defaultsloaded = "loaded"
+	end
+end
 			
 
 -- EVENT HANDLING -- 
