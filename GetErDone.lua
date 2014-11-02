@@ -813,6 +813,7 @@ function GetErDone:testui()
 --- New Compound Interface --- 
 
 	local newCompoundGroup = AceGUI:Create("InlineGroup")
+	local compoundSelectionLabel = AceGUI:Create("Label")
 	local editCompound = AceGUI:Create("EditBox")
 	local compoundQuantity = AceGUI:Create("EditBox")
 	local compoundChildrenToggle = AceGUI:Create("CheckBox")
@@ -829,6 +830,7 @@ function GetErDone:testui()
 		end
 	end)
 
+	compoundSelectionLabel:SetText("Current Group: " .. self.db.global.options.optCompound)
 	editCompound:SetLabel("Group Name")
 	editCompound:SetCallback("OnEnterPressed", function(widget, event, text) self:submitCompoundEdit(widget, event, text) end)
 
@@ -894,6 +896,7 @@ function GetErDone:testui()
 
 
 	f:AddChild(newCompoundGroup)
+	newCompoundGroup:AddChild(compoundSelectionLabel)
 	newCompoundGroup:AddChild(editCompound) 
 	newCompoundGroup:AddChild(compoundQuantity)
 	newCompoundGroup:AddChild(compoundChildrenToggle) 
@@ -915,7 +918,8 @@ function GetErDone:testui()
 	["trackableID"] = trackableID, 
 	["trackableQuantity"] = trackableQuantity,
 	["trackableFrame"] = trackablesScroll,
-	["compoundFrame"] = groupsScroll
+	["compoundFrame"] = groupsScroll,
+	["compoundSelectionLabel"] = compoundSelectionLabel,
 	}
 
 	f:DoLayout() --HOLY MOTHERFUCKING SHIT IS THIS LINE IMPORTANT
@@ -926,6 +930,7 @@ end
 function GetErDone:refreshTrackableList()
 	widgetManager["trackableFrame"]:ReleaseChildren()
 	for k, v in pairs(self:getTrackableChildren(self.db.global.options.optCompound)) do
+		print(self.db.global.trackables[v[1]][v[2]].name)
 		local label = AceGUI:Create("InteractiveLabel")
 		label:SetText(self.db.global.trackables[v[1]][v[2]].name)
 		label:SetHighlight(.5, .5, 0, .5)
@@ -936,51 +941,30 @@ end
 
 function GetErDone:refreshCompoundList()
 	widgetManager["compoundFrame"]:ReleaseChildren()
+	self:createCompoundTree("")
+end
 
-	cid = self.db.global.options.optCompound
-
-	--Repopulate Left Window
-	for k, v in pairs(self:getCompoundChildren(cid)) do
+function GetErDone:createCompoundTree(compoundid)
+	children = self:getCompoundChildren(compoundid)
+	for k,v in pairs(children) do
 		local label = AceGUI:Create("InteractiveLabel")
-		label:SetText(v .. " - " .. self.db.global.compounds[v].name)
+		label:SetText(self:getIndent(self:compoundNumParents(v)) .. " " .. v .. " - " .. self.db.global.compounds[v].name)
 		label:SetHighlight(.5, .5, 0, .5)
 		label:SetCallback("OnClick", function(widgetx) self:clickGroupLabel(widgetx, v, false) end)
 		widgetManager["compoundFrame"]:AddChild(label)
+		self:createCompoundTree(v)
 	end
-
-	--Add an "up one level" button if we're not at the top level
-	if cid ~= "" then
-		local label = AceGUI:Create("InteractiveLabel")
-		label:SetText("Up One Level ^")
-		label:SetHighlight(.5, .5, 0, .5)
-		label:SetCallback("OnClick", function(widgetx) self:clickGroupLabel(widgetx, cid, true) end)
-		widgetManager["compoundFrame"]:AddChild(label)
-	end
-
 end
 
 function GetErDone:clickGroupLabel(widget, compoundID, isUp)
 	widgetManager["trackableFrame"]:ReleaseChildren()
 	widgetManager["compoundFrame"]:ReleaseChildren()
 
-	if isUp then
-		if compoundID == nil then 
-			self.db.global.options.optCompound = ""
-		else
-			self.db.global.options.optCompound = self.db.global.compounds[compoundID].ownedBy
-		end
-	else
-		self.db.global.options.optCompound = compoundID
-	end
-
+	self.db.global.options.optCompound = compoundID
 	self:refreshCompoundList()
+	self.db.global.options.optCompound  = compoundID 
 
-	if not isUp then --If we want the children of the compound we just clicked
-		self.db.global.options.optCompound  = compoundID 
-	else --If we want the children of the parent of the compound we just clicked
-		self.db.global.options.optCompound = self:getCompoundParent(compoundID)
-	end
-
+	widgetManager["compoundSelectionLabel"]:SetText("Current Group: " .. self.db.global.compounds[self.db.global.options.optCompound].name)
 	self:refreshTrackableList()
 end
 
@@ -1071,6 +1055,14 @@ function GetErDone:getCompoundParent(compoundID)
 	return self.db.global.compounds[compoundID]["ownedBy"]
 end
 
+function GetErDone:compoundNumParents(compoundid)
+	if self.db.global.compounds[compoundid].ownedBy == "" then 
+		return 0
+	else
+		return 1 + self:compoundNumParents(self.db.global.compounds[compoundid].ownedBy)
+	end
+end
+
 function GetErDone:getTrackableChildren(owner)
 	t = {}
       for k,v in pairs(self.db.global.trackables) do
@@ -1115,6 +1107,14 @@ function GetErDone:getCharacters()
 		t[k] = v
 	end
 	return t
+end
+
+function GetErDone:getIndent(n)
+	result = ""
+	for i=1, n do
+		result = result .. "    "
+	end
+	return result
 end
 -----------------------------
 ------------ TEST CODE ------
