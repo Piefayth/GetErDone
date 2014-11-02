@@ -231,6 +231,13 @@ options = {
 						desc = "",
 						func = function() GetErDone:test_increment() end,
 					},
+					test_completion = {
+						order = 97,
+						type = "execute",
+						name = "test_completion",
+						desc = "",
+						func = function() GetErDone:test_completion() end,
+					},
 				},
 			},
 		},
@@ -443,6 +450,7 @@ function GetErDone:OnEnable()
 	if self.db.global.characters[name..server] == nil then 
 		self.db.global.characters[name..server] = name .. " - " .. server
 	end
+	self.db.global.character = name .. server
 
 	self:registerHandlers()
 end
@@ -508,6 +516,37 @@ function GetErDone:CompleteTrackable(id, type, status)
 			trackable.characters[k] = 0
 		end 
 	end	
+end
+
+function GetErDone:IsCompoundComplete(compound_id, character)
+	local compound = self.db.global.compounds[compound_id]
+	if not compound.active then return false end
+
+	for k, child_id in pairs(compound.comprisedOf) do
+		local completedCount = 0
+		if self:isCompoundId(child_id) then
+			if self:IsCompoundComplete(child_id, character) then
+				completedCount = completedCount + 1
+			end
+		else
+			if self:IsTrackableComplete(child_id.id, child_id.type, character) then
+				completedCount = completedCount + 1
+			end
+		end
+		if completedCount < compound.childCompletionQuantity then
+			return false
+		end
+	end
+
+	return true
+end
+
+function GetErDone:IsTrackableComplete(id, type, character)
+	local trackable = self.db.global.trackables[id][type]
+	if not trackable.active then return false end
+	if trackable.characters[character] == nil then return false end
+
+	return trackable.characters[character] >= trackable.completionQuantity
 end
 
 --------------------------------------------------------------------
@@ -973,4 +1012,177 @@ function GetErDone:addThing()
 	self.db.global.compounds[id] = compound
 	self:AddTrackable("1", MONSTER, "test1", id)
 	self:AddTrackable("2", MONSTER, "test2", id)
+end
+
+function GetErDone:test_completion()
+	local trackable_incomplete = { 
+		["trackable_incomplete"] = { 
+			["name"] = "test",
+			["ownedBy"] = {},
+			["reset"] = { 
+				["hour"] = 4,
+				["day"] = 11,
+				["month"] = 11,
+				["year"] = 2020,
+			},
+			["frequency"] = "weekly",
+			["characters"] = {
+				[self.db.global.character] = 0,
+			},
+			["completionQuantity"] = 1,
+			["active"] = true
+		}
+	}
+	local trackable_complete = { 
+		["trackable_complete"] = { 
+			["name"] = "test",
+			["ownedBy"] = {},
+			["reset"] = { 
+				["hour"] = 4,
+				["day"] = 11,
+				["month"] = 11,
+				["year"] = 2020,
+			},
+			["frequency"] = "weekly",
+			["characters"] = {
+				[self.db.global.character] = 1,
+			},
+			["completionQuantity"] = 1,
+			["active"] = true
+		}
+	}
+	local trackable_inactive = { 
+		["trackable_inactive"] = { 
+			["name"] = "test",
+			["ownedBy"] = {},
+			["reset"] = { 
+				["hour"] = 4,
+				["day"] = 11,
+				["month"] = 11,
+				["year"] = 2020,
+			},
+			["frequency"] = "weekly",
+			["characters"] = {
+				[self.db.global.character] = 1,
+			},
+			["completionQuantity"] = 1,
+			["active"] = false
+		}
+	}
+	local compound_one_complete = {
+			["name"] = test,
+			["active"] = true,
+			["comprisedOf"] = {
+				{["id"] = "trackable_complete", ["type"] = "trackable_complete"},
+			},
+			["ownedBy"] = "",
+			["displayChildren"] = true,
+			["childCompletionQuantity"] = 1,
+	}
+	local compound_half_complete = {
+			["name"] = test,
+			["active"] = true,
+			["comprisedOf"] = {
+				{["id"] = "trackable_complete", ["type"] = "trackable_complete"},
+				{["id"] = "trackable_incomplete", ["type"] = "trackable_incomplete"},
+			},
+			["ownedBy"] = "",
+			["displayChildren"] = true,
+			["childCompletionQuantity"] = 1,
+	}
+	local compound_quantity_two = {
+			["name"] = test,
+			["active"] = true,
+			["comprisedOf"] = {
+				{["id"] = "trackable_complete", ["type"] = "trackable_complete"},
+				{["id"] = "trackable_inactive", ["type"] = "trackable_inactive"},
+			},
+			["ownedBy"] = "",
+			["displayChildren"] = true,
+			["childCompletionQuantity"] = 2,
+	}
+	local compound_compound = {
+			["name"] = test,
+			["active"] = true,
+			["comprisedOf"] = {
+				"compound_one_complete",
+				"compound_quantity_two",
+			},
+			["ownedBy"] = "",
+			["displayChildren"] = true,
+			["childCompletionQuantity"] = 1,
+	}
+	local compound_mixed = {
+			["name"] = test,
+			["active"] = true,
+			["comprisedOf"] = {
+				"compound_one_complete",
+				{["id"] = "trackable_complete", ["type"] = "trackable_complete"},
+			},
+			["ownedBy"] = "",
+			["displayChildren"] = true,
+			["childCompletionQuantity"] = 2,
+	}
+
+	self.db.global.trackables["trackable_incomplete"] = trackable_incomplete
+	self.db.global.trackables["trackable_complete"] = trackable_complete
+	self.db.global.trackables["trackable_inactive"] = trackable_inactive
+	self.db.global.compounds["compound_one_complete"] = compound_one_complete
+	self.db.global.compounds["compound_half_complete"] = compound_half_complete
+	self.db.global.compounds["compound_quantity_two"] = compound_quantity_two
+	self.db.global.compounds["compound_compound"] = compound_compound
+	self.db.global.compounds["compound_mixed"] = compound_mixed
+
+	local character = self.db.global.character
+	local failures = {}
+
+	if self:IsTrackableComplete("trackable_incomplete", "trackable_incomplete", character) then
+		table.insert(failures, "trackable_incomplete failed")
+	end
+
+	if not self:IsTrackableComplete("trackable_complete", "trackable_complete", character) then
+		table.insert(failures, "trackable_complete failed")
+	end
+
+	if self:IsTrackableComplete("trackable_inactive", "trackable_inactive", character) then
+		table.insert(failures, "trackable_inactive failed")
+	end
+
+	if not self:IsCompoundComplete("compound_one_complete", character) then
+		table.insert(failures, "compound_one_complete failed")
+	end
+
+	if self:IsCompoundComplete("compound_half_complete", character) then
+		table.insert(failures, "compound_half_complete failed")
+	end
+
+	if self:IsCompoundComplete("compound_quantity_two", character) then
+		table.insert(failures, "compound_quantity_two failed")
+	end
+
+	if self:IsCompoundComplete("compound_quantity_two", character) then
+		table.insert(failures, "compound_quantity_two failed")
+	end
+
+	if not self:IsCompoundComplete("compound_compound", character) then
+		table.insert(failures, "compound_compound failed")
+	end
+
+	if not self:IsCompoundComplete("compound_mixed", character) then
+		table.insert(failures, "compound_mixed failed")
+	end
+
+	for k, v in pairs(failures) do
+		print(v)
+	end
+
+	self.db.global.trackables["trackable_incomplete"] = nil
+	self.db.global.trackables["trackable_inactive"] = nil
+	self.db.global.trackables["trackable_complete"] = nil
+	self.db.global.compounds["compound_quantity_two"] = nil
+	self.db.global.compounds["compound_one_complete"] = nil
+	self.db.global.compounds["compound_half_complete"] = nil
+	self.db.global.compounds["compound_mixed"] = nil
+	self.db.global.compounds["compound_compound"] = nil
+
 end
