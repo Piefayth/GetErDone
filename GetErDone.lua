@@ -23,8 +23,6 @@ local events = 	{
 	}
 }
 
-local trackables = {}
-
 options = {
 	name = "Get Er Done",
 	type = 'group',
@@ -330,7 +328,18 @@ function GetErDone:generateNextCompoundId()
 end
 
 function GetErDone:LoadTrackableName(id, type)
-	return trackableDb[id][type] or "not found"
+	local trackables = self.db.global.trackables
+	if trackables[id] ~= nil then
+		if trackables[id][type] ~= nil then
+			return trackables[id][type].name
+		end
+	end
+	if trackableDb[id] ~= nil then
+		if trackableDb[id][type] ~= nil then
+			return trackableDb[id][type]
+		end
+	end
+	return " "
 end
 
 function GetErDone:AddTrackable(id, type, name, owner, frequency, characters, quantity)
@@ -555,14 +564,11 @@ function GetErDone:IsCompletionCached(compound_id, character)
 end
 
 function GetErDone:GetCompletionCache(compound_id, character)
-	self:debug("Accessing cache for " .. compound_id)
 	return self.db.global.completionCache[character][compound_id]
 end
 
 function GetErDone:AddToCompletionCache(compound_id, character, completed)
-	self:debug("Updating cache for " .. compound_id)
 	if self:IsNullOrEmpty(self.db.global.completionCache[character]) then 
-		print("resetting cache")
 		self.db.global.completionCache[character] = {} 
 	end
 	self.db.global.completionCache[character][compound_id] = completed
@@ -570,7 +576,6 @@ function GetErDone:AddToCompletionCache(compound_id, character, completed)
 end
 
 function GetErDone:InvalidateCompletionCache(character)
-	self:debug("Invalidating cache")
 	if character == COMPLETION_CACHE_ALL_CHARACTERS then
 		self.db.global.completionCache = {}
 	else
@@ -686,10 +691,12 @@ function GetErDone:OnLogin()
 	name, server = UnitFullName("player")
 	self.db.global.options.character = name..server
 	self.db.global.character = name..server
-	--self.trackables = self:getAllTrackables()
 end
 
--- UTILS -- 
+
+--------------------------------------------------------------------
+----------------------- UTIL METHODS -------------------------------
+--------------------------------------------------------------------
 
 function GetErDone:debug(message)
 	if debugMode then
@@ -829,6 +836,7 @@ function GetErDone:testui()
 --- New Trackable Interface ---
 
 	local newTrackableGroup = AceGUI:Create("InlineGroup")
+	local trackableName = AceGUI:Create("Label")
 	local trackableID = AceGUI:Create("EditBox")
 	local trackableType = AceGUI:Create("Dropdown")
 	local trackableCharacter = AceGUI:Create("Dropdown")
@@ -841,18 +849,24 @@ function GetErDone:testui()
 	addTrackableButton:SetCallback("OnClick", function(widget, event) self:AddTrackable(
 		self.db.global.options.trackableID, 
 		self.db.global.options.typechoice, 
-		"Something: " .. self.db.global.options.trackableID,
+		self:LoadTrackableName(self.db.global.options.trackableID, self.db.global.options.typechoice),
 		self.db.global.options.optCompound,
 		self.db.global.options.frequency,
 		self.db.global.options.character,
 		self.db.global.options.quantity,
 		trackablesScroll) end)
 
-	trackableID:SetCallback("OnEnterPressed", function(widget, event, text) self:submitIDEdit(widget, event, text) end)
+	trackableName:SetText(" ")
+
+	trackableID:SetCallback("OnEnterPressed", function(widget, event, text) 
+		self:submitIDEdit(widget, event, text) 
+	end)
 	trackableID:SetLabel("ID")
 
 	trackableType:SetList({["monster"] = "Monster", ["item"] = "Item", ["quest"] = "Quest"})
-	trackableType:SetCallback("OnValueChanged", function(widget, event, key) self:getTrackableTypeDropdown(widget, event, key) end)
+	trackableType:SetCallback("OnValueChanged", function(widget, event, key) 
+		self:getTrackableTypeDropdown(widget, event, key) 
+	end)
 	trackableType:SetLabel("Type")
 
 	trackableFrequency:SetList({["daily"] = "Daily", ["weekly"] = "Weekly", ["monthly"] = "Monthly", ["once"] = "Once"})
@@ -878,6 +892,7 @@ function GetErDone:testui()
 	newCompoundGroup:AddChild(buttonCompound)
 	
 	f:AddChild(newTrackableGroup)
+	newTrackableGroup:AddChild(trackableName)
 	newTrackableGroup:AddChild(trackableID)
 	newTrackableGroup:AddChild(trackableType)
 	newTrackableGroup:AddChild(trackableFrequency)
@@ -886,6 +901,7 @@ function GetErDone:testui()
 	newTrackableGroup:AddChild(addTrackableButton)
 	
 	widgetManager = {
+	["trackableName"] = trackableName,
 	["editCompound"] = editCompound, 
 	["compoundQuantity"] = compoundQuantity, 
 	["trackableID"] = trackableID, 
@@ -989,6 +1005,7 @@ end
 
 function GetErDone:setTrackableTypeDropdown(widget)
 	widget:SetValue(self.db.global.options.typechoice)
+	widgetManager.trackableName:SetText(self:LoadTrackableName(self.db.global.options.trackableID, self.db.global.options.typechoice))
 end
 
 function GetErDone:getTrackableFrequencyDropdown(widget, event, key)
@@ -1019,6 +1036,7 @@ end
 
 function GetErDone:populateIDEdit(widget)
 	widget:SetText(self.db.global.options.trackableID)
+	widgetManager.trackableName:SetText(self:LoadTrackableName(self.db.global.options.trackableID, self.db.global.options.typechoice))
 end
 
 function GetErDone:getTrackableQuantity(widget, event, text)

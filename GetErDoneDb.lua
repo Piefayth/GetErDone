@@ -1,6 +1,6 @@
 trackableDb = {
 	["1"] = {
-		["npc"] = "butts",
+		["monster"] = "butts",
 		["quest"] = "bums",
 		["item"] = "hello",
 	},
