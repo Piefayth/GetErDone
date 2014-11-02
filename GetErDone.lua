@@ -934,40 +934,15 @@ function GetErDone:clickGroupLabel(widget, compoundID, isUp)
 		self.db.global.options.optCompound = compoundID
 	end
 
-	cid = self.db.global.options.optCompound
+	self:refreshCompoundList()
 
-	--Repopulate Left Window
-	for k, v in pairs(self:getCompoundChildren(cid)) do
-		local label = AceGUI:Create("InteractiveLabel")
-		label:SetText(v .. " - " .. self.db.global.compounds[v].name)
-		label:SetHighlight(.5, .5, 0, .5)
-		label:SetCallback("OnClick", function(widgetx) self:clickGroupLabel(widgetx, v, false) end)
-		widgetManager["compoundFrame"]:AddChild(label)
-	end
-
-	--Add an "up one level" button if we're not at the top level
-	if cid ~= "" then
-		local label = AceGUI:Create("InteractiveLabel")
-		label:SetText("Up One Level ^")
-		label:SetHighlight(.5, .5, 0, .5)
-		label:SetCallback("OnClick", function(widgetx) self:clickGroupLabel(widgetx, cid, true) end)
-		widgetManager["compoundFrame"]:AddChild(label)
-	end
-
-	--Repopulate Right Window
 	if not isUp then --If we want the children of the compound we just clicked
-		target = compoundID 
+		self.db.global.options.optCompound  = compoundID 
 	else --If we want the children of the parent of the compound we just clicked
-		target = self:getCompoundParent(compoundID)
-	end
-	for k, v in pairs(self:getTrackableChildren(target)) do
-		local label = AceGUI:Create("InteractiveLabel")
-		label:SetText(self.db.global.trackables[v[1]][v[2]].name)
-		label:SetHighlight(.5, .5, 0, .5)
-		label:SetCallback("OnClick", function(widgetx) self:clickTrackableLabel(widgetx, {v[1], v[2]}, widgetManager["trackableFrame"]) end)
-		widgetManager["trackableFrame"]:AddChild(label)
+		self.db.global.options.optCompound = self:getCompoundParent(compoundID)
 	end
 
+	self:refreshTrackableList()
 end
 
 function GetErDone:clickTrackableLabel(widget, trackableID)
