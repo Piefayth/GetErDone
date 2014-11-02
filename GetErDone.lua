@@ -842,7 +842,9 @@ function GetErDone:testui()
 		if success then
 			widgetManager["editCompound"]:SetText("")
 			widgetManager["compoundQuantity"]:SetText("")
-
+			self.db.global.options.compoundquantity = ""
+			self.db.global.options.newCompoundName = ""
+			widgetManager["buttonCompound"]:SetDisabled(true)
 			self:refreshCompoundList()
 		end
 	end)
@@ -861,6 +863,8 @@ function GetErDone:testui()
 	newCompoundGroup:SetRelativeWidth(0.5)
 	newCompoundGroup:SetLayout("List")
 
+	buttonCompound:SetDisabled(true)
+
 --- New Trackable Interface ---
 
 	local newTrackableGroup = AceGUI:Create("InlineGroup")
@@ -874,7 +878,8 @@ function GetErDone:testui()
 
 
 	addTrackableButton:SetText("Add ID")
-	addTrackableButton:SetCallback("OnClick", function(widget, event) self:AddTrackable(
+	addTrackableButton:SetCallback("OnClick", 
+		function(widget, event) self:AddTrackable(
 		self.db.global.options.trackableID, 
 		self.db.global.options.typechoice, 
 		self:LoadTrackableName(self.db.global.options.trackableID, self.db.global.options.typechoice),
@@ -882,7 +887,9 @@ function GetErDone:testui()
 		self.db.global.options.frequency,
 		self:prepareCharacters( { self.db.global.options.character } ), -- TODO multiple name selection
 		self.db.global.options.quantity,
-		trackablesScroll) end)
+		trackablesScroll) 
+			widgetManager["addTrackableButton"]:SetDisabled(true)
+		end)
 
 	trackableName:SetText(" ")
 
@@ -896,14 +903,17 @@ function GetErDone:testui()
 		self:getTrackableTypeDropdown(widget, event, key) 
 	end)
 	trackableType:SetLabel("Type")
+	trackableType:SetValue(self.db.global.options.typechoice)
 
 	trackableFrequency:SetList({["daily"] = "Daily", ["weekly"] = "Weekly", ["monthly"] = "Monthly", ["once"] = "Once"})
 	trackableFrequency:SetCallback("OnValueChanged", function(widget, event, key) self:getTrackableFrequencyDropdown(widget, event, key) end)
 	trackableFrequency:SetLabel("Frequency")
+	trackableFrequency:SetValue(self.db.global.options.frequency)
 
 	trackableCharacter:SetList(self:getCharacters())
 	trackableCharacter:SetCallback("OnValueChanged", function(widget, event, key) self:getTrackableCharacterDropdown(widget, event, key) end)
 	trackableCharacter:SetLabel("Character")
+	trackableCharacter:SetValue(self.db.global.options.character)
 
 	trackableQuantity:SetCallback("OnEnterPressed", function(widget, event, text) self:getTrackableQuantity(widget, event, text) end)
 	trackableQuantity:SetLabel("Quantity")
@@ -911,6 +921,7 @@ function GetErDone:testui()
 	newTrackableGroup:SetRelativeWidth(0.5)
 	newTrackableGroup:SetLayout("List")
 
+	addTrackableButton:SetDisabled(true)
 
 
 	f:AddChild(newCompoundGroup)
@@ -920,6 +931,7 @@ function GetErDone:testui()
 	newCompoundGroup:AddChild(compoundChildrenToggle) 
 	newCompoundGroup:AddChild(buttonCompound)
 	
+
 	f:AddChild(newTrackableGroup)
 	newTrackableGroup:AddChild(trackableName)
 	newTrackableGroup:AddChild(trackableID)
@@ -928,6 +940,7 @@ function GetErDone:testui()
 	newTrackableGroup:AddChild(trackableCharacter)
 	newTrackableGroup:AddChild(trackableQuantity)
 	newTrackableGroup:AddChild(addTrackableButton)
+
 	
 	widgetManager = {
 	["trackableName"] = trackableName,
@@ -938,11 +951,30 @@ function GetErDone:testui()
 	["trackableFrame"] = trackablesScroll,
 	["compoundFrame"] = groupsScroll,
 	["compoundSelectionLabel"] = compoundSelectionLabel,
+	["buttonCompound"] = buttonCompound,
+	["addTrackableButton"] = addTrackableButton
 	}
 
 	f:DoLayout() --HOLY MOTHERFUCKING SHIT IS THIS LINE IMPORTANT
 
 	
+end
+
+function GetErDone:buttonCheck(t)
+	if t == "compound" then
+		if self.db.global.options.newCompoundName ~= "" and
+			self.db.global.options.compoundquantity ~= "" then
+			widgetManager["buttonCompound"]:SetDisabled(false)
+		end
+	elseif t == "trackable" then
+		if self.db.global.options.trackableid ~= "" and
+			self.db.global.options.typechoice ~= "" and
+			self.db.global.options.frequency ~= "" and
+			self.db.global.options.character ~= "" and
+			self.db.global.options.quantity ~= "" then
+			widgetManager["addTrackableButton"]:SetDisabled(false)
+		end
+	end
 end
 
 function GetErDone:prepareCharacters(characters)
@@ -983,6 +1015,7 @@ function GetErDone:createCompoundTree(compoundid)
 		label:SetText(self:getIndent(self:compoundNumParents(v)) .. " " .. v .. " - " .. self.db.global.compounds[v].name)
 		label:SetHighlight(.5, .5, 0, .5)
 		label:SetCallback("OnClick", function(widgetx) self:clickGroupLabel(widgetx, v, false) end)
+		if self.db.global.compounds[v] == self.db.global.compounds[self.db.global.options.optCompound] then label:SetColor(1, 0, 0) end
 		widgetManager["compoundFrame"]:AddChild(label)
 		self:createCompoundTree(v)
 	end
@@ -1020,6 +1053,7 @@ end
 
 function GetErDone:setCompoundQuantity(widget)
 	widget:SetText(self.db.global.options["compoundquantity"])
+	GetErDone:buttonCheck("compound")
 end
 
 function GetErDone:getTrackableTypeDropdown(widget, event, key)
@@ -1030,6 +1064,7 @@ end
 function GetErDone:setTrackableTypeDropdown(widget)
 	widget:SetValue(self.db.global.options.typechoice)
 	widgetManager.trackableName:SetText(self:LoadTrackableName(self.db.global.options.trackableID, self.db.global.options.typechoice))
+	GetErDone:buttonCheck("trackable")
 end
 
 function GetErDone:getTrackableFrequencyDropdown(widget, event, key)
@@ -1039,6 +1074,7 @@ end
 
 function GetErDone:setTrackableFrequencyDropdown(widget)
 	widget:SetValue(self.db.global.options.frequency)
+	GetErDone:buttonCheck("trackable")
 end
 
 function GetErDone:getTrackableCharacterDropdown(widget, event, key)
@@ -1048,6 +1084,7 @@ end
 
 function GetErDone:setTrackableCharacterDropdown(widget)
 	widget:SetValue(self.db.global.options.character)
+	GetErDone:buttonCheck("trackable")
 end
 
 function GetErDone:submitIDEdit(widget, event, text)
@@ -1061,6 +1098,7 @@ end
 function GetErDone:populateIDEdit(widget)
 	widget:SetText(self.db.global.options.trackableID)
 	widgetManager.trackableName:SetText(self:LoadTrackableName(self.db.global.options.trackableID, self.db.global.options.typechoice))
+	GetErDone:buttonCheck("trackable")
 end
 
 function GetErDone:getTrackableQuantity(widget, event, text)
@@ -1072,6 +1110,7 @@ end
 
 function GetErDone:setTrackableQuantity(widget)
 	widget:SetText(self.db.global.options.quantity)
+	GetErDone:buttonCheck("trackable")
 end
 
 function GetErDone:submitCompoundEdit(widget, event, text)
@@ -1081,6 +1120,7 @@ end
 
 function GetErDone:populateCompoundEdit(widget)
 	widget:SetText(self.db.global.options.newCompoundName)
+	GetErDone:buttonCheck("compound")
 end
 
 function GetErDone:getCompoundParent(compoundID)
