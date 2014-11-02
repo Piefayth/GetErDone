@@ -316,19 +316,31 @@ function GetErDone:getCharactersFromOptions()
 	return { chars }
 end
 
-function GetErDone:createCompound()
+function GetErDone:createCompound(widget, event, value)
+	if self.db.global.options.newCompoundName == "" or self.db.global.options.newCompoundName == nil then return end
+
 	local compound = {
-		["name"] = "",
+		["name"] = self.db.global.options.newCompoundName,
 		["active"] = true,
-		["characters"] = {},
-		["reset"] = {},
-		["frequency"] = "daily",
 		["comprisedOf"] = {},
-		["ownedBy"] = {},
-		["conditions"] = {},
+		["ownedBy"] = self.db.global.options.optCompound,
+		["displayChildren"] = self.db.global.options.compoundchildren,
+		["childCompletionQuantity"] = self.db.global.options.compoundquantity
 	}
-	local id = GetErDone:generateNextCompoundId()
-	return id, compound
+
+	self.db.global.options.compoundquantity = ""
+	self.db.global.options.newCompoundName = ""
+
+	widgetManager["editCompound"]:SetText("")
+	widgetManager["compoundQuantity"]:SetText("")
+
+	self.db.global.compounds[GetErDone:generateNextCompoundId()] = compound
+
+	self:refreshCompoundList()
+
+	
+
+	return 0, compound
 end
 
 function GetErDone:disableCompound(compound_id, propagate, direction)
@@ -363,7 +375,7 @@ function GetErDone:generateNextCompoundId()
 	return CUSTOM_PREFIX .. id
 end
 
-function GetErDone:AddTrackable(id, type, name, owner, frequency, characters, quantity, trackableFrame)
+function GetErDone:AddTrackable(id, type, name, owner, frequency, characters, quantity)
 	self:ensureTrackable(id)
 	if id == 0 or id == "" then return end
 	if self.db.global.trackables[id][type] == nil then
@@ -381,7 +393,7 @@ function GetErDone:AddTrackable(id, type, name, owner, frequency, characters, qu
     	end
     end
 
-    self:refreshTrackableList(trackableFrame)
+    self:refreshTrackableList()
 
     self:updateOwner(owner, id, type)
 
@@ -433,9 +445,9 @@ function GetErDone:OnInitialize()
 
 	--self.optionsFrames.general.obj.frame:AddChild(btn)
 	self.optionsFrames.general.obj.frame:SetScale(1)
-	print(self.optionsFrames.general.obj.frame:GetRegions()[0])
+	self:debug(self.optionsFrames.general.obj.frame:GetRegions()[0])
 	for k,v in pairs(self.optionsFrames.general.obj.frame:GetRegions()) do
-		print(k, v)
+		self:debug(k, v)
 	end
 	
 
@@ -767,16 +779,14 @@ function GetErDone:testui()
 	groupsScroll:SetRelativeWidth(0.5)
 	groupsContainer:AddChild(groupsScroll)
 	trackablesContainer:AddChild(trackablesScroll)
+
+	widgetManager = {
+	["trackableFrame"] = trackablesScroll,
+	["compoundFrame"] = groupsScroll
+	}
 	---Scroll Groups Data--
-	for k, v in pairs(self:getUnownedCompounds()) do
-		local label = AceGUI:Create("InteractiveLabel")
-		label:SetText(v .. " - " .. self.db.global.compounds[v].name)
-		label:SetHighlight(.5, .5, 0, .5)
-		label:SetCallback("OnClick", function(widget) self:clickGroupLabel(widget, v, groupsScroll, trackablesScroll) end) --v is the id of the compound
-		groupsScroll:AddChild(label)
-		table.insert(leftLabelgroup, label)
-	end
-	self:refreshTrackableList(trackablesScroll)
+	self:refreshCompoundList()
+	self:refreshTrackableList()
 
 --- New Compound Interface --- 
 
@@ -787,13 +797,16 @@ function GetErDone:testui()
 	local buttonCompound = AceGUI:Create("Button")
 
 	buttonCompound:SetText("Add Group")
+	buttonCompound:SetCallback("OnClick", function(widget, event, text) self:createCompound(widget, event, text) end)
 
 	editCompound:SetLabel("Group Name")
-	editCompound:SetCallback("OnEnterPressed", function(widget, event, text) self:submitCompoundEdit(editCompound, text) end)
+	editCompound:SetCallback("OnEnterPressed", function(widget, event, text) self:submitCompoundEdit(widget, event, text) end)
 
 	compoundQuantity:SetLabel("Quantity - 0 for all children")
+	compoundQuantity:SetCallback("OnEnterPressed", function(widget, event, text) self:getCompoundQuantity(widget, event, text) end)
 
 	compoundChildrenToggle:SetLabel("Display Children?")
+	compoundChildrenToggle:SetCallback("OnValueChanged", function(widget, event, value) self:getCompoundChildrenToggle(widget, event, value) end)
 
 	newCompoundGroup:SetRelativeWidth(0.5)
 	newCompoundGroup:SetLayout("List")
@@ -857,28 +870,59 @@ function GetErDone:testui()
 	newTrackableGroup:AddChild(trackableQuantity)
 	newTrackableGroup:AddChild(addTrackableButton)
 	
-	widgetManager = {["editCompound"] = editCompound, ["compoundQuantity"] = compoundQuantity, ["trackableID"] = trackableID, ["trackableQuantity"] = trackableQuantity}
+	widgetManager = {
+	["editCompound"] = editCompound, 
+	["compoundQuantity"] = compoundQuantity, 
+	["trackableID"] = trackableID, 
+	["trackableQuantity"] = trackableQuantity,
+	["trackableFrame"] = trackablesScroll,
+	["compoundFrame"] = groupsScroll
+	}
 
 	f:DoLayout() --HOLY MOTHERFUCKING SHIT IS THIS LINE IMPORTANT
 
 	
 end
 
-function GetErDone:refreshTrackableList(trackableFrame)
-	trackableFrame:ReleaseChildren()
+function GetErDone:refreshTrackableList()
+	widgetManager["trackableFrame"]:ReleaseChildren()
 	for k, v in pairs(self:getTrackableChildren(self.db.global.options.optCompound)) do
 		local label = AceGUI:Create("InteractiveLabel")
 		label:SetText(self.db.global.trackables[v[1]][v[2]].name)
 		label:SetHighlight(.5, .5, 0, .5)
-		label:SetCallback("OnClick", function(widgetx) self:clickTrackableLabel(widgetx, {v[1], v[2]}, trackableFrame) end)
-		trackableFrame:AddChild(label)
+		label:SetCallback("OnClick", function(widgetx) self:clickTrackableLabel(widgetx, {v[1], v[2]}) end)
+		widgetManager["trackableFrame"]:AddChild(label)
+	end
+end
+
+function GetErDone:refreshCompoundList()
+	widgetManager["compoundFrame"]:ReleaseChildren()
+
+	cid = self.db.global.options.optCompound
+
+	--Repopulate Left Window
+	for k, v in pairs(self:getCompoundChildren(cid)) do
+		local label = AceGUI:Create("InteractiveLabel")
+		label:SetText(v .. " - " .. self.db.global.compounds[v].name)
+		label:SetHighlight(.5, .5, 0, .5)
+		label:SetCallback("OnClick", function(widgetx) self:clickGroupLabel(widgetx, v, false) end)
+		widgetManager["compoundFrame"]:AddChild(label)
+	end
+
+	--Add an "up one level" button if we're not at the top level
+	if cid ~= "" then
+		local label = AceGUI:Create("InteractiveLabel")
+		label:SetText("Up One Level ^")
+		label:SetHighlight(.5, .5, 0, .5)
+		label:SetCallback("OnClick", function(widgetx) self:clickGroupLabel(widgetx, cid, true) end)
+		widgetManager["compoundFrame"]:AddChild(label)
 	end
 
 end
 
-function GetErDone:clickGroupLabel(widget, compoundID, groupFrame, trackableFrame, isUp)
-	trackableFrame:ReleaseChildren()
-	groupFrame:ReleaseChildren()
+function GetErDone:clickGroupLabel(widget, compoundID, isUp)
+	widgetManager["trackableFrame"]:ReleaseChildren()
+	widgetManager["compoundFrame"]:ReleaseChildren()
 
 	if isUp then
 		if compoundID == nil then 
@@ -897,8 +941,8 @@ function GetErDone:clickGroupLabel(widget, compoundID, groupFrame, trackableFram
 		local label = AceGUI:Create("InteractiveLabel")
 		label:SetText(v .. " - " .. self.db.global.compounds[v].name)
 		label:SetHighlight(.5, .5, 0, .5)
-		label:SetCallback("OnClick", function(widgetx) self:clickGroupLabel(widgetx, v, groupFrame, trackableFrame, false) end)
-		groupFrame:AddChild(label)
+		label:SetCallback("OnClick", function(widgetx) self:clickGroupLabel(widgetx, v, false) end)
+		widgetManager["compoundFrame"]:AddChild(label)
 	end
 
 	--Add an "up one level" button if we're not at the top level
@@ -906,28 +950,46 @@ function GetErDone:clickGroupLabel(widget, compoundID, groupFrame, trackableFram
 		local label = AceGUI:Create("InteractiveLabel")
 		label:SetText("Up One Level ^")
 		label:SetHighlight(.5, .5, 0, .5)
-		label:SetCallback("OnClick", function(widgetx) self:clickGroupLabel(widgetx, cid, groupFrame, trackableFrame, true) end)
-		groupFrame:AddChild(label)
+		label:SetCallback("OnClick", function(widgetx) self:clickGroupLabel(widgetx, cid, true) end)
+		widgetManager["compoundFrame"]:AddChild(label)
 	end
 
 	--Repopulate Right Window
 	if not isUp then --If we want the children of the compound we just clicked
 		target = compoundID 
 	else --If we want the children of the parent of the compound we just clicked
-		target = self:getTrackableChildren(self:getCompoundParent(compoundID))
+		target = self:getCompoundParent(compoundID)
 	end
-
 	for k, v in pairs(self:getTrackableChildren(target)) do
 		local label = AceGUI:Create("InteractiveLabel")
 		label:SetText(self.db.global.trackables[v[1]][v[2]].name)
 		label:SetHighlight(.5, .5, 0, .5)
-		label:SetCallback("OnClick", function(widgetx) self:clickTrackableLabel(widgetx, {v[1], v[2]}, trackableFrame) end)
-		trackableFrame:AddChild(label)
+		label:SetCallback("OnClick", function(widgetx) self:clickTrackableLabel(widgetx, {v[1], v[2]}, widgetManager["trackableFrame"]) end)
+		widgetManager["trackableFrame"]:AddChild(label)
 	end
+
 end
 
-function GetErDone:clickTrackableLabel(widget, trackableID, trackableFrame)
+function GetErDone:clickTrackableLabel(widget, trackableID)
 
+end
+
+function GetErDone:getCompoundChildrenToggle(widget, event, key)
+	self.db.global.options["compoundchildren"] = key
+	self:setCompoundChildrenToggle(widget)
+end
+
+function GetErDone:setCompoundChildrenToggle(widget)
+	widget:SetValue(self.db.global.options["compoundchildren"])
+end
+
+function GetErDone:getCompoundQuantity(widget, event, text)
+	self.db.global.options["compoundquantity"] = text
+	self:setCompoundQuantity(widget)
+end
+
+function GetErDone:setCompoundQuantity(widget)
+	widget:SetText(self.db.global.options["compoundquantity"])
 end
 
 function GetErDone:getTrackableTypeDropdown(widget, event, key)
@@ -980,8 +1042,9 @@ function GetErDone:setTrackableQuantity(widget)
 	widget:SetText(self.db.global.options.quantity)
 end
 
-function GetErDone:submitCompoundEdit(widget, text)
+function GetErDone:submitCompoundEdit(widget, event, text)
 	self.db.global.options.newCompoundName = text
+	self:populateCompoundEdit(widget)
 end
 
 function GetErDone:populateCompoundEdit(widget)
@@ -1008,16 +1071,16 @@ end
 --@owner = compoundid
 function GetErDone:getCompoundChildren(owner)
 	t = {}
-	for k,v in pairs(self.db.global.compounds) do
-		if v["ownedBy"] == owner then
-			table.insert(t,k)
+	if owner ~= "" and owner ~= nil then
+		for k,v in pairs(self.db.global.compounds) do
+			if v["ownedBy"] == owner then
+				table.insert(t,k)
+			end
 		end
-	end
-	if t == {} then 
+	else
 		return self:getUnownedCompounds()
-	else 
-		return t 
 	end
+		return t 
 end
 
 function GetErDone:getUnownedCompounds()
@@ -1066,7 +1129,7 @@ function GetErDone:test_reset()
 	self:UpdateResets()
 
 	if self.db.global.trackables["resettest"]["resettest"].characters[self.db.global.character] == 0 then
-		print("reset test passed!")
+		self:debug("reset test passed!")
 	end
 
 	self.db.global.trackables["resettest"] = nil
@@ -1096,7 +1159,7 @@ function GetErDone:test_increment()
 	self:CompleteTrackable("incrementtest", "incrementtest", COMPLETE_INCREMENT)
 
 	if self.db.global.trackables["incrementtest"]["incrementtest"].characters[self.db.global.character] == 1 then
-		print("increment test passed!")
+		self:debug("increment test passed!")
 	end
 
 	self.db.global.trackables["incrementtest"] = nil
@@ -1114,7 +1177,7 @@ function GetErDone:testeventkill_one()
 	self.db.global.test = {["test"] = "a"}
 	local t = self.db.global.test
 	t.test = "b"
-	print(self.db.global.test.test)
+	self:debug(self.db.global.test.test)
 	self.db.global.test = nil
 end
 
@@ -1289,7 +1352,7 @@ function GetErDone:test_completion()
 	end
 
 	for k, v in pairs(failures) do
-		print(v)
+		self:debug(v)
 	end
 
 	self.db.global.trackables["trackable_incomplete"] = nil
