@@ -893,7 +893,8 @@ function GetErDone:testui()
 	newCompoundGroup:AddChild(compoundQuantity)
 	newCompoundGroup:AddChild(compoundChildrenToggle) 
 	newCompoundGroup:AddChild(buttonCompound)
-	
+	buttonCompound:SetDisabled(true)
+
 	f:AddChild(newTrackableGroup)
 	newTrackableGroup:AddChild(trackableName)
 	newTrackableGroup:AddChild(trackableID)
@@ -912,6 +913,7 @@ function GetErDone:testui()
 	["trackableFrame"] = trackablesScroll,
 	["compoundFrame"] = groupsScroll,
 	["compoundSelectionLabel"] = compoundSelectionLabel,
+	["buttonCompound"] = buttonCompound,
 	}
 
 	f:DoLayout() --HOLY MOTHERFUCKING SHIT IS THIS LINE IMPORTANT
