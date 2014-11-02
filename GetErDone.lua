@@ -1,4 +1,4 @@
-local GetErDone = LibStub("AceAddon-3.0"):NewAddon("GetErDone", "AceEvent-3.0", "AceConsole-3.0")
+GetErDone = LibStub("AceAddon-3.0"):NewAddon("GetErDone", "AceEvent-3.0", "AceConsole-3.0")
 
 local AceConfig = LibStub("AceConfig-3.0")
 local AceConfigDialog = LibStub("AceConfigDialog-3.0")
@@ -22,7 +22,6 @@ local events = 	{
 		},
 	}
 }
-
 
 local trackables = {}
 
@@ -262,6 +261,7 @@ REGION_KR = 2
 REGION_EU = 3
 REGION_TW = 4
 REGION_CN = 5
+COMPLETION_CACHE_ALL_CHARACTERS = 1
 local debugMode = true
 
 
@@ -288,26 +288,6 @@ function GetErDone:GetOption(v)
 	return option
 end
 
-
-function GetErDone:addCompound(compound_id)
-	local compound
-	if compound_id == nil then
-		compound_id, compound = self:addNewCompound()
-	else
-		compound = self.db.global.compounds[compound_id]
-		if compound == nil then
-			error("addCompound: compound present in db but null")
-		end
-	end
-
-	compound.name = self:GetOption("newCompoundName")
-end
-
-function GetErDone:addNewCompound()
-	local id, compound = self:createCompound()
-	self.db.global.compounds[id] = compound
-end
-
 function GetErDone:getCharactersFromOptions()
 	local chars = self.db.global.options.character
 	if chars == "All" then
@@ -316,8 +296,8 @@ function GetErDone:getCharactersFromOptions()
 	return { chars }
 end
 
-function GetErDone:createCompound(widget, event, value)
-	if self.db.global.options.newCompoundName == "" or self.db.global.options.newCompoundName == nil then return end
+function GetErDone:addCompound()
+	if self.db.global.options.newCompoundName == "" or self.db.global.options.newCompoundName == nil then return false end
 
 	local compound = {
 		["name"] = self.db.global.options.newCompoundName,
@@ -331,35 +311,9 @@ function GetErDone:createCompound(widget, event, value)
 	self.db.global.options.compoundquantity = ""
 	self.db.global.options.newCompoundName = ""
 
-	widgetManager["editCompound"]:SetText("")
-	widgetManager["compoundQuantity"]:SetText("")
-
 	self.db.global.compounds[GetErDone:generateNextCompoundId()] = compound
 
-	self:refreshCompoundList()
-
-	
-
-	return 0, compound
-end
-
-function GetErDone:disableCompound(compound_id, propagate, direction)
-	self.db.global.compounds[compound_id].active = false
-	if propagate then 
-		-- upstream
-		if direction == UP or direction == BOTH then
-			for k, id in pairs(self.db.global.compounds[compound_id].ownedBy) do
-				self:disableCompound(id, propagate, UP)
-			end
-		elseif direction == DOWN or direction == BOTH then
-			-- downstream
-			for k, id in pairs(self.db.global.compounds[compound_id].comprisedOf) do
-				if self:isCompoundId(id) then
-					self:disableCompound(id, propagate, DOWN)
-				end
-			end
-		end
-	end
+	return true
 end
 
 function GetErDone:isCompoundId(id)
@@ -375,9 +329,13 @@ function GetErDone:generateNextCompoundId()
 	return CUSTOM_PREFIX .. id
 end
 
+function GetErDone:LoadTrackableName(id, type)
+	return trackableDb[id][type] or "not found"
+end
+
 function GetErDone:AddTrackable(id, type, name, owner, frequency, characters, quantity)
 	self:ensureTrackable(id)
-	if id == 0 or id == "" then return end
+	if id == 0 or id == "" then error("AddTrackable: null or empty id") end
 	if self.db.global.trackables[id][type] == nil then
 		self.db.global.trackables[id][type] = {
 			["name"] = name,
@@ -468,6 +426,7 @@ function GetErDone:OnEnable()
 	if self.db.global.options.nextCompoundId == nil then self.db.global.options.nextCompoundId = 1 end
 	if self.db.global.options.newCompoundName == nil then self.db.global.options.newCompoundName = "" end
 	if self.db.global.region == nil then self.db.global.region = GetCurrentRegion() end
+	if self.db.global.completionCache == nil then self.db.global.completionCache = {} end
 
 
 	name, server = UnitFullName("player")
@@ -477,6 +436,7 @@ function GetErDone:OnEnable()
 	self.db.global.character = name .. server
 
 	self:registerHandlers()
+	--self:UpdateResets()
 end
 
 -- EVENT HANDLING -- 
@@ -530,15 +490,18 @@ function GetErDone:CompleteTrackable(id, type, status)
 	if trackable == nil then
 		error("CompleteTrackable: null trackable")
 	end
+	local character = self.db.global.character
 
 	if status == COMPLETE_INCREMENT then
-		if trackable.characters[self.db.global.character] < trackable.completionQuantity then
-			trackable.characters[self.db.global.character] = trackable.characters[self.db.global.character] + 1
+		if trackable.characters[character] < trackable.completionQuantity then
+			trackable.characters[character] = trackable.characters[character] + 1
 		end
+		self:InvalidateCompletionCache(character)
 	elseif status == COMPLETE_ZERO then
 		for k, v in pairs(trackable.characters) do
 			trackable.characters[k] = 0
 		end 
+		self:InvalidateCompletionCache(COMPLETION_CACHE_ALL_CHARACTERS)
 	end	
 end
 
@@ -546,8 +509,12 @@ function GetErDone:IsCompoundComplete(compound_id, character)
 	local compound = self.db.global.compounds[compound_id]
 	if not compound.active then return false end
 
+	if self:IsCompletionCached(compound_id, character) then
+		return self:GetCompletionCache(compound_id, character)
+	end
+
+	local completedCount = 0
 	for k, child_id in pairs(compound.comprisedOf) do
-		local completedCount = 0
 		if self:isCompoundId(child_id) then
 			if self:IsCompoundComplete(child_id, character) then
 				completedCount = completedCount + 1
@@ -557,12 +524,15 @@ function GetErDone:IsCompoundComplete(compound_id, character)
 				completedCount = completedCount + 1
 			end
 		end
-		if completedCount < compound.childCompletionQuantity then
-			return false
+
+		if completedCount >= compound.childCompletionQuantity then
+			self:AddToCompletionCache(compound_id, character, true)
+			return true
 		end
 	end
 
-	return true
+	self:AddToCompletionCache(compound_id, character, false)
+	return false
 end
 
 function GetErDone:IsTrackableComplete(id, type, character)
@@ -571,6 +541,41 @@ function GetErDone:IsTrackableComplete(id, type, character)
 	if trackable.characters[character] == nil then return false end
 
 	return trackable.characters[character] >= trackable.completionQuantity
+end
+
+--------------------------------------------------------------------
+----------------------- TRACKING CACHE -----------------------------
+--------------------------------------------------------------------
+
+function GetErDone:IsCompletionCached(compound_id, character)
+	if not self:IsNullOrEmpty(self.db.global.completionCache[character]) then
+		return self.db.global.completionCache[character][compound_id] ~= nil
+	end
+	return false
+end
+
+function GetErDone:GetCompletionCache(compound_id, character)
+	self:debug("Accessing cache for " .. compound_id)
+	return self.db.global.completionCache[character][compound_id]
+end
+
+function GetErDone:AddToCompletionCache(compound_id, character, completed)
+	self:debug("Updating cache for " .. compound_id)
+	if self:IsNullOrEmpty(self.db.global.completionCache[character]) then 
+		print("resetting cache")
+		self.db.global.completionCache[character] = {} 
+	end
+	self.db.global.completionCache[character][compound_id] = completed
+	print(self.db.global.completionCache[character][compound_id])
+end
+
+function GetErDone:InvalidateCompletionCache(character)
+	self:debug("Invalidating cache")
+	if character == COMPLETION_CACHE_ALL_CHARACTERS then
+		self.db.global.completionCache = {}
+	else
+		self.db.global.completionCache[character] = {}
+	end
 end
 
 --------------------------------------------------------------------
@@ -740,7 +745,9 @@ function GetErDone:GetNestedDepth(compound_id)
 	end
 end
 
-
+function GetErDone:IsNullOrEmpty(dict)
+	return dict == nil or next(dict) == nil
+end
 
 ---------------------------------UI CODE-------------------------------------------
 
@@ -797,7 +804,15 @@ function GetErDone:testui()
 	local buttonCompound = AceGUI:Create("Button")
 
 	buttonCompound:SetText("Add Group")
-	buttonCompound:SetCallback("OnClick", function(widget, event, text) self:createCompound(widget, event, text) end)
+	buttonCompound:SetCallback("OnClick", function(widget, event, text) 
+		local success = self:addCompound() 
+		if success then
+			widgetManager["editCompound"]:SetText("")
+			widgetManager["compoundQuantity"]:SetText("")
+
+			self:refreshCompoundList()
+		end
+	end)
 
 	editCompound:SetLabel("Group Name")
 	editCompound:SetCallback("OnEnterPressed", function(widget, event, text) self:submitCompoundEdit(widget, event, text) end)
@@ -1107,7 +1122,6 @@ function GetErDone:test_reset()
 		self:debug("reset test passed!")
 	end
 
-	self.db.global.trackables["resettest"] = nil
 end
 
 function GetErDone:test_increment()
@@ -1137,7 +1151,6 @@ function GetErDone:test_increment()
 		self:debug("increment test passed!")
 	end
 
-	self.db.global.trackables["incrementtest"] = nil
 end
 
 
@@ -1264,7 +1277,7 @@ function GetErDone:test_completion()
 			},
 			["ownedBy"] = "",
 			["displayChildren"] = true,
-			["childCompletionQuantity"] = 1,
+			["childCompletionQuantity"] = 2,
 	}
 	local compound_mixed = {
 			["name"] = test,
@@ -1306,7 +1319,7 @@ function GetErDone:test_completion()
 		table.insert(failures, "compound_one_complete failed")
 	end
 
-	if self:IsCompoundComplete("compound_half_complete", character) then
+	if not self:IsCompoundComplete("compound_half_complete", character) then
 		table.insert(failures, "compound_half_complete failed")
 	end
 
@@ -1314,11 +1327,7 @@ function GetErDone:test_completion()
 		table.insert(failures, "compound_quantity_two failed")
 	end
 
-	if self:IsCompoundComplete("compound_quantity_two", character) then
-		table.insert(failures, "compound_quantity_two failed")
-	end
-
-	if not self:IsCompoundComplete("compound_compound", character) then
+	if self:IsCompoundComplete("compound_compound", character) then
 		table.insert(failures, "compound_compound failed")
 	end
 
@@ -1329,14 +1338,5 @@ function GetErDone:test_completion()
 	for k, v in pairs(failures) do
 		self:debug(v)
 	end
-
-	self.db.global.trackables["trackable_incomplete"] = nil
-	self.db.global.trackables["trackable_inactive"] = nil
-	self.db.global.trackables["trackable_complete"] = nil
-	self.db.global.compounds["compound_quantity_two"] = nil
-	self.db.global.compounds["compound_one_complete"] = nil
-	self.db.global.compounds["compound_half_complete"] = nil
-	self.db.global.compounds["compound_mixed"] = nil
-	self.db.global.compounds["compound_compound"] = nil
 
 end

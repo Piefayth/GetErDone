@@ -33,3 +33,6 @@ global:
 			ownedBy: [owner] NULLABLE
 			displayChildren: [boolean, do we display children in ui]
 			childCompletionQuantity: [quantity of children required to mark this as completed]
+	completionCache:
+		[character name]:
+			[compound_id]: [boolean]
