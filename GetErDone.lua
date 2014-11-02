@@ -303,7 +303,7 @@ function GetErDone:addCompound()
 		["comprisedOf"] = {},
 		["ownedBy"] = self.db.global.options.optCompound,
 		["displayChildren"] = self.db.global.options.compoundchildren,
-		["childCompletionQuantity"] = self.db.global.options.compoundquantity
+		["childCompletionQuantity"] = tonumber(self.db.global.options.compoundquantity)
 	}
 
 	self.db.global.options.compoundquantity = ""
@@ -339,30 +339,30 @@ function GetErDone:LoadTrackableName(id, type)
 			return trackableDb[id][type]
 		end
 	end
-	return " "
+	return type .. " not found in database."
 end
 
 function GetErDone:AddTrackable(id, type, name, owner, frequency, characters, quantity)
-	self:ensureTrackable(id)
 	if id == 0 or id == "" then error("AddTrackable: null or empty id") end
+
+	self:ensureTrackable(id)
 	if self.db.global.trackables[id][type] == nil then
 		self.db.global.trackables[id][type] = {
 			["name"] = name,
 			["ownedBy"] = owner,
 			["frequency"] = frequency,
-			["reset"] = self:NextReset(frequency, REGION_US),
+			["reset"] = self:NextReset(frequency, self.db.global.region),
 			["characters"] = characters,
-			["completionQuantity"] = quantity
+			["completionQuantity"] = tonumber(quantity)
     	}
     else
-    	if not self:contains(self.db.global.trackables[id][type].ownedBy, owner) then
-    		table.insert(self.db.global.trackables[id][type].ownedBy, owner)
-    	end
+    	self.db.global.trackables[id][type].ownedBy = owner
     end
+
+    self:updateOwner(owner, id, type)
 
     self:refreshTrackableList()
 
-    self:updateOwner(owner, id, type)
 
     --Zero Out Options Fields--
 	self.db.global.options.quantity = ""
@@ -605,7 +605,6 @@ function GetErDone:AddToCompletionCache(compound_id, character, completed)
 		self.db.global.completionCache[character] = {} 
 	end
 	self.db.global.completionCache[character][compound_id] = completed
-	print(self.db.global.completionCache[character][compound_id])
 end
 
 function GetErDone:InvalidateCompletionCache(character)
@@ -765,24 +764,15 @@ function GetErDone:GetCompoundLevel(compound_id)
 		error("GetCompoundLevel: null compound reference")
 	end
 
-	if compound.ownedBy == nil or compound.ownedBy == {} then
+	if compound.ownedBy == nil or compound.ownedBy == "" then
 		return COMPOUND_LEVEL_TOP
 	end
 
-	for k, v in pairs(compound.ownedBy) do
-		if self:isCompoundId(v) then
-			return COMPOUND_LEVEL_MID
-		end
+	if self:isCompoundId(compound.ownedBy) then
+		return COMPOUND_LEVEL_MID
 	end
-	return COMPOUND_LEVEL_BOTTOM
-end
 
-function GetErDone:GetNestedDepth(compound_id)
-	if self:GetCompoundLevel(compound_id) == COMPOUND_LEVEL_TOP then
-		return 0
-	else
-		return 1 + GetErDone:GetNestedDepth(self.db.global.compounds[compound_id].ownedBy)
-	end
+	return COMPOUND_LEVEL_BOTTOM
 end
 
 function GetErDone:IsNullOrEmpty(dict)
@@ -862,7 +852,8 @@ function GetErDone:testui()
 	compoundQuantity:SetLabel("Quantity - 0 for all children")
 	compoundQuantity:SetCallback("OnEnterPressed", function(widget, event, text) self:getCompoundQuantity(widget, event, text) end)
 
-	compoundChildrenToggle:SetLabel("Display Children?")
+	compoundChildrenToggle:SetLabel("Display Children")
+	compoundChildrenToggle:SetValue(true)
 	compoundChildrenToggle:SetCallback("OnValueChanged", function(widget, event, value) self:getCompoundChildrenToggle(widget, event, value) end)
 
 	newCompoundGroup:SetRelativeWidth(0.5)
@@ -887,7 +878,7 @@ function GetErDone:testui()
 		self:LoadTrackableName(self.db.global.options.trackableID, self.db.global.options.typechoice),
 		self.db.global.options.optCompound,
 		self.db.global.options.frequency,
-		self.db.global.options.character,
+		self:prepareCharacters( { self.db.global.options.character } ), -- TODO multiple name selection
 		self.db.global.options.quantity,
 		trackablesScroll) end)
 
@@ -950,6 +941,20 @@ function GetErDone:testui()
 	f:DoLayout() --HOLY MOTHERFUCKING SHIT IS THIS LINE IMPORTANT
 
 	
+end
+
+function GetErDone:prepareCharacters(characters)
+	local chars = {}
+	if characters["All"] ~= nil then
+		for name, v in pairs(self.db.global.characters) do
+			chars[name] = 0
+		end
+	else
+		for k, name in pairs(characters) do
+			chars[name] = 0
+		end
+	end
+	return chars
 end
 
 function GetErDone:refreshTrackableList()
@@ -1077,7 +1082,7 @@ function GetErDone:populateCompoundEdit(widget)
 end
 
 function GetErDone:getCompoundParent(compoundID)
-	return self.db.global.compounds[compoundID]["ownedBy"]
+	return self.db.global.compounds[compoundID].ownedBy
 end
 
 function GetErDone:compoundNumParents(compoundid)
@@ -1092,7 +1097,7 @@ function GetErDone:getTrackableChildren(owner)
 	t = {}
       for k,v in pairs(self.db.global.trackables) do
       	for kk,vv in pairs(v) do
-	        if vv["ownedBy"] == owner then
+	        if vv.ownedBy == owner then
 	          table.insert(t,{k, kk}) --We're making a able of {id, type}
 	        end
 	    end
@@ -1106,7 +1111,7 @@ function GetErDone:getCompoundChildren(owner)
 	t = {}
 	if owner ~= "" and owner ~= nil then
 		for k,v in pairs(self.db.global.compounds) do
-			if v["ownedBy"] == owner then
+			if v.ownedBy == owner then
 				table.insert(t,k)
 			end
 		end
@@ -1119,7 +1124,7 @@ end
 function GetErDone:getUnownedCompounds()
 	t = {}
 	for k,v in pairs(self.db.global.compounds) do
-		if v["ownedBy"] == "" then
+		if v.ownedBy == "" then
 			table.insert(t,k)
 		end
 	end
@@ -1150,7 +1155,7 @@ function GetErDone:test_reset()
 	local resettest = { 
 		["resettest"] = { 
 			["name"] = "test",
-			["ownedBy"] = {},
+			["ownedBy"] = "",
 			["reset"] = { 
 				["hour"] = "4",
 				["day"] = "11",
@@ -1179,7 +1184,7 @@ function GetErDone:test_increment()
 	local incrementtest = { 
 		["incrementtest"] = { 
 			["name"] = "test",
-			["ownedBy"] = {},
+			["ownedBy"] = "",
 			["reset"] = { 
 				["hour"] = "4",
 				["day"] = "11",
@@ -1236,7 +1241,7 @@ function GetErDone:test_completion()
 	local trackable_incomplete = { 
 		["trackable_incomplete"] = { 
 			["name"] = "test",
-			["ownedBy"] = {},
+			["ownedBy"] = "",
 			["reset"] = { 
 				["hour"] = 4,
 				["day"] = 11,
@@ -1254,7 +1259,7 @@ function GetErDone:test_completion()
 	local trackable_complete = { 
 		["trackable_complete"] = { 
 			["name"] = "test",
-			["ownedBy"] = {},
+			["ownedBy"] = "",
 			["reset"] = { 
 				["hour"] = 4,
 				["day"] = 11,
@@ -1272,7 +1277,7 @@ function GetErDone:test_completion()
 	local trackable_inactive = { 
 		["trackable_inactive"] = { 
 			["name"] = "test",
-			["ownedBy"] = {},
+			["ownedBy"] = "",
 			["reset"] = { 
 				["hour"] = 4,
 				["day"] = 11,
@@ -1288,7 +1293,7 @@ function GetErDone:test_completion()
 		}
 	}
 	local compound_one_complete = {
-			["name"] = test,
+			["name"] = "test",
 			["active"] = true,
 			["comprisedOf"] = {
 				{["id"] = "trackable_complete", ["type"] = "trackable_complete"},
@@ -1298,7 +1303,7 @@ function GetErDone:test_completion()
 			["childCompletionQuantity"] = 1,
 	}
 	local compound_half_complete = {
-			["name"] = test,
+			["name"] = "test",
 			["active"] = true,
 			["comprisedOf"] = {
 				{["id"] = "trackable_complete", ["type"] = "trackable_complete"},
@@ -1309,7 +1314,7 @@ function GetErDone:test_completion()
 			["childCompletionQuantity"] = 1,
 	}
 	local compound_quantity_two = {
-			["name"] = test,
+			["name"] = "test",
 			["active"] = true,
 			["comprisedOf"] = {
 				{["id"] = "trackable_complete", ["type"] = "trackable_complete"},
@@ -1320,7 +1325,7 @@ function GetErDone:test_completion()
 			["childCompletionQuantity"] = 2,
 	}
 	local compound_compound = {
-			["name"] = test,
+			["name"] = "test",
 			["active"] = true,
 			["comprisedOf"] = {
 				"compound_one_complete",
@@ -1331,7 +1336,7 @@ function GetErDone:test_completion()
 			["childCompletionQuantity"] = 2,
 	}
 	local compound_mixed = {
-			["name"] = test,
+			["name"] = "test",
 			["active"] = true,
 			["comprisedOf"] = {
 				"compound_one_complete",
