@@ -381,7 +381,7 @@ function GetErDone:AddTrackable(id, type, name, owner, frequency, characters, qu
 
     self:refreshTrackableList(trackableFrame)
 
-    self:updateOwner(owner, id)
+    self:updateOwner(owner, id, type)
 
     --Zero Out Options Fields--
 	self.db.global.options.quantity = 0
@@ -389,6 +389,7 @@ function GetErDone:AddTrackable(id, type, name, owner, frequency, characters, qu
 end
 
 function GetErDone:updateOwner(ownerId, childId, childType)
+	if ownerId == nil or ownerId == "" then return end
 	local owner = self.db.global.compounds[ownerId]
 	if owner == nil then error("updateOwner: ownerId points to null compound") end
 	if childType == nil then
