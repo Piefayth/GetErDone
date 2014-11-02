@@ -771,20 +771,26 @@ function GetErDone:testui()
 		groupsScroll:AddChild(label)
 		table.insert(leftLabelgroup, label)
 	end
+	self:refreshTrackableList(trackablesScroll)
 
-	---Adding New Trackable and a group to contain them---
+--- New Compound Interface --- 
 
 	local newCompoundGroup = AceGUI:Create("InlineGroup")
 	local editCompound = AceGUI:Create("EditBox")
-	local dropdownCompound = AceGUI:Create("Dropdown")
+	local compoundChildrenToggle = AceGUI:Create("CheckBox")
 	local buttonCompound = AceGUI:Create("Button")
 
 	buttonCompound:SetText("Add Group")
 
+	editCompound:SetLabel("Group Name")
 	editCompound:SetCallback("OnEnterPressed", function(widget, event, text) self:submitCompoundEdit(editCompound, text) end)
+
+	compoundChildrenToggle:SetLabel("Display Children?")
 
 	newCompoundGroup:SetRelativeWidth(0.5)
 	newCompoundGroup:SetLayout("List")
+
+--- New Trackable Interface ---
 
 	local newTrackableGroup = AceGUI:Create("InlineGroup")
 	local trackableID = AceGUI:Create("EditBox")
@@ -831,7 +837,7 @@ function GetErDone:testui()
 
 	f:AddChild(newCompoundGroup)
 	newCompoundGroup:AddChild(editCompound) 
-	newCompoundGroup:AddChild(dropdownCompound) 
+	newCompoundGroup:AddChild(compoundChildrenToggle) 
 	newCompoundGroup:AddChild(buttonCompound)
 	
 	f:AddChild(newTrackableGroup)
