@@ -457,7 +457,7 @@ function GetErDone:OnEnable()
 	self.db.global.character = name .. server
 
 	self:registerHandlers()
-	self:LoadDefaults()
+	--self:LoadDefaults()
 	self:UpdateResets()
 end
 
