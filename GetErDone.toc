@@ -8,3 +8,4 @@
 embeds.xml
 GetErDone.lua
 GetErDoneDb.lua
+GetErDoneDefaults.lua

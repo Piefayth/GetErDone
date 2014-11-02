@@ -308,8 +308,8 @@ function GetErDone:addCompound()
 
 	self.db.global.options.compoundquantity = ""
 	self.db.global.options.newCompoundName = ""
-
-	self.db.global.compounds[GetErDone:generateNextCompoundId()] = compound
+	compound_id = self.db.global.options.compoundId or GetErDone:generateNextCompoundId()
+	self.db.global.compounds[compound_id] = compound
 
 	return true
 end
@@ -438,6 +438,7 @@ function GetErDone:OnEnable()
 	if self.db.global.completionCache == nil then self.db.global.completionCache = {} end
 
 
+
 	name, server = UnitFullName("player")
 	if self.db.global.characters[name..server] == nil then 
 		self.db.global.characters[name..server] = name .. " - " .. server
@@ -445,8 +446,15 @@ function GetErDone:OnEnable()
 	self.db.global.character = name .. server
 
 	self:registerHandlers()
-	--self:UpdateResets()
+	self:LoadDefaults()
+	self:UpdateResets()
 end
+
+function GetErDone:LoadDefaults()
+	if self.db.global.defaultsLoaded == nil then
+		for compound_id, compound in pairs(defaults) do
+			local options = self.db.global.options
+			
 
 -- EVENT HANDLING -- 
 
