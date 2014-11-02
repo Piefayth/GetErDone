@@ -260,6 +260,8 @@ REGION_EU = 3
 REGION_TW = 4
 REGION_CN = 5
 COMPLETION_CACHE_ALL_CHARACTERS = 1
+TRACKABLE_DB_PREFIX = "trackable_"
+TRACKABLE_DB_SEGMENT_SIZE = 10000
 local debugMode = true
 
 
@@ -334,10 +336,12 @@ function GetErDone:LoadTrackableName(id, type)
 			return trackables[id][type].name
 		end
 	end
-	for k, v in pairs(trackableDb) do
-		if trackableDb[id] ~= nil then
-			if trackableDb[id][type] ~= nil then
-				return trackableDb[id][type]
+	
+	local db = _G[TRACKABLE_DB_PREFIX .. tostring(floor(tonumber(id) / TRACKABLE_DB_SEGMENT_SIZE))]
+	if db ~= nil then
+		if db[id] ~= nil then
+			if db[id][type] ~= nil then
+				return db[id][type]
 			end
 		end
 	end
