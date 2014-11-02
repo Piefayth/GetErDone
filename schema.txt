@@ -36,3 +36,7 @@ global:
 	completionCache:
 		[character name]:
 			[compound_id]: [boolean]
+
+trackableDb:
+	[id]:
+		[type]: [name]
