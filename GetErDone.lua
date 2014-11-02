@@ -5,6 +5,7 @@ local AceConfigDialog = LibStub("AceConfigDialog-3.0")
 local AceDB = LibStub("AceDB-3.0")
 local AceDBOptions = LibStub("AceDBOptions-3.0")
 local AceGUI = LibStub("AceGUI-3.0")
+local widgetManager = {}
 
 local events = 	{
 	["monster"] = {
@@ -364,6 +365,7 @@ end
 
 function GetErDone:AddTrackable(id, type, name, owner, frequency, characters, quantity, trackableFrame)
 	self:ensureTrackable(id)
+	if id == 0 or id == "" then return end
 	if self.db.global.trackables[id][type] == nil then
 		self.db.global.trackables[id][type] = {
 			["name"] = name,
@@ -384,8 +386,10 @@ function GetErDone:AddTrackable(id, type, name, owner, frequency, characters, qu
     self:updateOwner(owner, id, type)
 
     --Zero Out Options Fields--
-	self.db.global.options.quantity = 0
-	self.db.global.options.trackableID = 0
+	self.db.global.options.quantity = ""
+	self.db.global.options.trackableID = ""
+	widgetManager["trackableID"]:SetText("")
+	widgetManager["trackableQuantity"]:SetText("")
 end
 
 function GetErDone:updateOwner(ownerId, childId, childType)
@@ -778,6 +782,7 @@ function GetErDone:testui()
 
 	local newCompoundGroup = AceGUI:Create("InlineGroup")
 	local editCompound = AceGUI:Create("EditBox")
+	local compoundQuantity = AceGUI:Create("EditBox")
 	local compoundChildrenToggle = AceGUI:Create("CheckBox")
 	local buttonCompound = AceGUI:Create("Button")
 
@@ -785,6 +790,8 @@ function GetErDone:testui()
 
 	editCompound:SetLabel("Group Name")
 	editCompound:SetCallback("OnEnterPressed", function(widget, event, text) self:submitCompoundEdit(editCompound, text) end)
+
+	compoundQuantity:SetLabel("Quantity - 0 for all children")
 
 	compoundChildrenToggle:SetLabel("Display Children?")
 
@@ -838,6 +845,7 @@ function GetErDone:testui()
 
 	f:AddChild(newCompoundGroup)
 	newCompoundGroup:AddChild(editCompound) 
+	newCompoundGroup:AddChild(compoundQuantity)
 	newCompoundGroup:AddChild(compoundChildrenToggle) 
 	newCompoundGroup:AddChild(buttonCompound)
 	
@@ -849,6 +857,8 @@ function GetErDone:testui()
 	newTrackableGroup:AddChild(trackableQuantity)
 	newTrackableGroup:AddChild(addTrackableButton)
 	
+	widgetManager = {["editCompound"] = editCompound, ["compoundQuantity"] = compoundQuantity, ["trackableID"] = trackableID, ["trackableQuantity"] = trackableQuantity}
+
 	f:DoLayout() --HOLY MOTHERFUCKING SHIT IS THIS LINE IMPORTANT
 
 	
