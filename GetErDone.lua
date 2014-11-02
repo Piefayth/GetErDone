@@ -334,9 +334,11 @@ function GetErDone:LoadTrackableName(id, type)
 			return trackables[id][type].name
 		end
 	end
-	if trackableDb[id] ~= nil then
-		if trackableDb[id][type] ~= nil then
-			return trackableDb[id][type]
+	for k, v in pairs(trackableDb) do
+		if trackableDb[id] ~= nil then
+			if trackableDb[id][type] ~= nil then
+				return trackableDb[id][type]
+			end
 		end
 	end
 	return type .. " not found in database."
