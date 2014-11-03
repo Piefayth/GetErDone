@@ -133,7 +133,6 @@ options = {
 						values = function()
 							t = {["None"] = "None"}
 							for k, v in pairs(GetErDone:GetOption("compounds")) do
-								--print(k..v)
 								t[k] = v.name
 							end
 							return t
@@ -243,6 +242,13 @@ options = {
 						desc = "",
 						func = function() GetErDone:createIngameList() end,
 					},
+					testtreechar = {
+						order = 98,
+						type = "execute",
+						name = "testtreechar",
+						desc = "",
+						func = function() GetErDone:createIngameListChar() end,
+					},
 				},
 			},
 		},
@@ -274,6 +280,7 @@ CHARACTERS_ALL = "all"
 NESTING_INDENT = "    "
 COULD_NOT_FIND_TRACKABLE_IN_DB = ""
 MERGED_DELIMITER = ":"
+TREE_CHARACTER_STRING_LENGTH = 80
 local debugMode = true
 
 
@@ -427,16 +434,6 @@ function GetErDone:OnInitialize()
 	self.optionsFrames.general = AceConfigDialog:AddToBlizOptions("GetErDone", nil, nil, "general")
 
 
-
-	--self.optionsFrames.general.obj.frame:AddChild(btn)
-	self.optionsFrames.general.obj.frame:SetScale(1)
-	self:debug(self.optionsFrames.general.obj.frame:GetRegions()[0])
-	for k,v in pairs(self.optionsFrames.general.obj.frame:GetRegions()) do
-		self:debug(k, v)
-	end
-	
-
-
 	--Event Registry--
 	self:RegisterEvent("PLAYER_ENTERING_WORLD", "OnLogin") --Note the syntax, second parameter is a function name as a string
 
@@ -463,9 +460,16 @@ function GetErDone:OnEnable()
 	end
 	self.db.global.character = name .. server
 
-	self:registerHandlers()
+	--self:registerHandlers()
 	--self:LoadDefaults()
 	self:UpdateResets()
+	self:RegisterEvent("QUEST_COMPLETE", "doeventthing", "QUEST_COMPLETE")
+	self:RegisterEvent("QUEST_FINISHED", "doeventthing", "QUEST_FINISHED")
+	self:RegisterEvent("QUEST_TURNED_IN", "doeventthing", "QUEST_TURNED_IN")
+end
+
+function GetErDone:doeventthing(event)
+	print(event)
 end
 
 function GetErDone:OnUpdate()
@@ -575,10 +579,14 @@ end
 -----------------------------------------------------------------
 
 local aceTree = {}
+local aceTreeCharacter = {}
 
 function GetErDone:invalidateAceTree()
 	aceTree = {}
+	aceTreeCharacter = {}
 end
+
+----------------- normal tree -----------------
 
 function GetErDone:getAceTree(showAll)
 	if not self:IsNullOrEmpty(aceTree) then
@@ -592,10 +600,11 @@ function GetErDone:getAceTree(showAll)
 
 	for k, merged in pairs(self:getUnownedTrackables()) do
 		local id, type = self:fromMergedId(merged)
-		local trackable = self:createTrackableTree(id, type)
+		local trackable = self:createTrackableTree(id, type, showAll)
 		table.insert(aceTree, trackable)
 	end
 
+	self.db.global.tree = aceTree
 	return aceTree
 end
 
@@ -611,31 +620,16 @@ function GetErDone:createAceTree(compound_id, showAll)
 	return tree
 end
 
-function GetErDone:createTrackableTree(id, type)
+function GetErDone:createTrackableTree(id, type, showAll)
 	local characters = {}
+	local visibleVar = self:getTreeDisplay(id, type, showAll, character)
 	for character, v in pairs(self.db.global.trackables[id][type].characters) do
-		if not self:IsComplete(id, type, character) then
-			table.insert(characters, { value = character, text = self:createCharacterCompletionText(id, type, character) })
-		end
+		table.insert(characters, { value = character, text = self:createCharacterCompletionText(id, type, character), visible = visibleVar })
 	end
+	if self:IsNullOrEmpty(characters) then characters = nil end
 	local trackable = { value = self:toMergedId(id, type), text = self:createTrackableTextForAceTree(id, type), 
-						visible = self:getTreeDisplay(id, type, showAll, character), children = characters}
+						visible = visibleVar, children = characters}
 	return trackable
-end
-
-function GetErDone:createCharacterCompletionText(id, type, character) 
-	local trackable = self.db.global.trackables[id][type]
-	return character .. " " .. tostring(trackable.characters[character]) .. "/" .. trackable.completionQuantity
-end
-
-function GetErDone:createTrackableTextForAceTree(id, type)
-	local trackable = self.db.global.trackables[id][type]
-	return trackable.name
-end
-
-function GetErDone:createCompoundTextForAceTree(compound_id)
-	local compound = self.db.global.compounds[compound_id]
-	return compound.name
 end
 
 function GetErDone:getTreeDisplay(id, type, showAll)
@@ -660,10 +654,130 @@ function GetErDone:getTreeDisplay(id, type, showAll)
 
 	-- displayChildren check
 	if item.ownedBy ~= "" then
+		return  self.db.global.compounds[item.ownedBy].displayChildren
+	end
+
+	return true
+end
+
+function GetErDone:createTrackableTextForAceTree(id, type)
+	local trackable = self.db.global.trackables[id][type]
+	return trackable.name
+end
+
+------------------- character tree ---------------------
+
+function GetErDone:getAceTreeCharacter(showAll, character)
+	if not self:IsNullOrEmpty(aceTreeCharacter) then
+		return aceTreeCharacter
+	end
+
+	if character == CHARACTERS_ALL then
+		for char, v in pairs(self.db.global.characters) do
+			self:getAceTreeCharacterPrivate(showAll, char)
+		end
+	else
+		self:getAceTreeCharacterPrivate(showAll, character)
+	end
+	
+	return aceTreeCharacter
+end
+
+-- do not call this directly
+function GetErDone:getAceTreeCharacterPrivate(showAll, character)
+	for k, topLevelCompoundId in pairs(self:getUnownedCompounds()) do
+		local visibleVar = self:getTreeDisplayCharacter(topLevelCompoundId, nil, showAll, character)
+		if visibleVar then 
+			table.insert(aceTreeCharacter, { value = topLevelCompoundId, text = self:createCompoundTextForAceTree(topLevelCompoundId), 
+				children = self:createAceTreeCharacter(topLevelCompoundId, showAll, character) } )
+		end
+	end
+	for k, merged in pairs(self:getUnownedTrackables()) do
+		local id, type = self:fromMergedId(merged)
+		local trackable = self:createTrackableTreeCharacter(id, type, showAll, character)
+		if trackable ~= nil then
+			table.insert(aceTreeCharacter, trackable)
+		end
+	end
+end
+
+function GetErDone:createAceTreeCharacter(compound_id, showAll, character)
+	local tree = {}
+	for k, child_id in pairs(self.db.global.compounds[compound_id].comprisedOf) do
+		if self:isCompoundId(child_id) then
+			local visibleVar = self:getTreeDisplayCharacter(child_id, nil, showAll, character)
+			if visibleVar then
+				table.insert(tree, { value = child_id, text = self:createCompoundTextForAceTree(child_id), children = self:createAceTreeCharacter(child_id, showAll, character) } )
+			end
+		else
+			local trackable = self:createTrackableTreeCharacter(child_id.id, child_id.type, showAll, character)
+			if trackable ~= nil then
+				table.insert(tree, trackable)
+			end
+		end
+	end
+	return tree
+end
+
+function GetErDone:createTrackableTreeCharacter(id, type, showAll, character)
+	local visibleVar = self:getTreeDisplayCharacter(id, type, showAll, character)
+	if not visibleVar then return end
+
+	return { value = self:toMergedId(id, type), text = self:createTrackableTextForAceTreeCharacter(id, type, character)}
+end
+
+function GetErDone:getTreeDisplayCharacter(id, type, showAll, character)
+	if showAll then return true end
+
+	local item
+	if type == nil then 
+		item = self.db.global.compounds[id]
+	else
+		item = self.db.global.trackables[id][type]
+	end
+
+	-- active check
+	if not item.active then
+		return false
+	end
+
+	-- completion check
+	if self:IsComplete(id, type, character) then
+		return false
+	end
+
+	-- displayChildren check
+	if item.ownedBy ~= "" then
 		return self.db.global.compounds[item.ownedBy].displayChildren
 	end
 
 	return true
+end
+
+function GetErDone:createTrackableTextForAceTreeCharacter(id, type, character)
+	local trackable = self.db.global.trackables[id][type]
+	print(id)
+	print(type)
+	print(character)
+	local completion = trackable.characters[character] .. "/" .. trackable.completionQuantity
+	return self:padTrackableName(trackable.name, completion)
+end
+
+----------------- shared ----------------------
+
+function GetErDone:padTrackableName(name, completion)
+	local len = TREE_CHARACTER_STRING_LENGTH - #(name) - #(completion)
+	return name .. string.rep(" ", len) .. completion
+end
+
+function GetErDone:createCharacterCompletionText(id, type, character) 
+	local trackable = self.db.global.trackables[id][type]
+	return character .. " " .. tostring(trackable.characters[character]) .. "/" .. trackable.completionQuantity
+end
+
+function GetErDone:createCompoundTextForAceTree(compound_id)
+	local compound = self.db.global.compounds[compound_id]
+	return compound.name
 end
 
 function GetErDone:toMergedId(id, type)
@@ -800,7 +914,7 @@ function GetErDone:UpdateResets()
 	for id, types in pairs(self.db.global.trackables) do
 		for type, trackable in pairs(types) do
 			local newReset = self:NextReset(trackable.frequency, self.db.global.region)
-			if not self:ResetEquals(newReset, trackable.reset) then
+			if not self:ResetCompare(newReset, trackable.reset) then
 				self:debug("Updating reset and completion on trackable " .. id .. ":" .. type)
 				trackable.reset = newReset
 				self:CompleteTrackable(id, type, COMPLETE_ZERO)
@@ -809,15 +923,15 @@ function GetErDone:UpdateResets()
 	end
 end
 
-function GetErDone:ResetEquals(a, b)
+function GetErDone:ResetCompare(a, b)
 	if a == nil or b == nil then
 		error("ResetEquals: null reset")
 	end
 
-	if a.day ~= b.day then return false end
-	if a.month ~= b.month then return false end
-	if a.hour ~= b.hour then return false end
-	if a.year ~= b.year then return false end
+	if a.year > b.year then return false end
+	if a.month > b.month then return false end
+	if a.day > b.day then return false end
+	if a.hour > b.hour then return false end
 	return true
 end
 
@@ -1287,7 +1401,6 @@ end
 function GetErDone:refreshTrackableList()
 	widgetManager["trackableFrame"]:ReleaseChildren()
 	for k, v in pairs(self:getTrackableChildren(self.db.global.compounds[self.db.global.options.optCompound])) do
-		self:debug(self.db.global.trackables[k][v].name)
 		local label = AceGUI:Create("InteractiveLabel")
 		label:SetText(self.db.global.trackables[k][v].name)
 		label:SetHighlight(.5, .5, 0, .5)
@@ -1438,6 +1551,20 @@ function GetErDone:createIngameList()
     
     widgetManager["mainTree"] = mainTree
 end
+
+function GetErDone:createIngameListChar()
+    local f = AceGUI:Create("Frame")
+    f:SetCallback("OnClose",function(widget) AceGUI:Release(widget) end)
+    f:SetLayout("Fill")
+    f:SetHeight(800)
+    
+    local mainTree = AceGUI:Create("TreeGroup")
+    mainTree:SetTree(self:getAceTreeCharacter(false, self.db.global.character))
+    
+    f:AddChild(mainTree)
+    
+    widgetManager["mainTreeChar"] = mainTree
+end
 -----------------------------
 ------------ TEST CODE ------
 -----------------------------
@@ -1449,10 +1576,10 @@ function GetErDone:test_reset()
 			["name"] = "test",
 			["ownedBy"] = "",
 			["reset"] = { 
-				["hour"] = "4",
-				["day"] = "11",
-				["month"] = "11",
-				["year"] = "2013",
+				["hour"] = 4,
+				["day"] = 11,
+				["month"] = 11,
+				["year"] = 2013,
 			},
 			["frequency"] = "weekly",
 			["characters"] = {
@@ -1478,10 +1605,10 @@ function GetErDone:test_increment()
 			["name"] = "test",
 			["ownedBy"] = "",
 			["reset"] = { 
-				["hour"] = "4",
-				["day"] = "11",
-				["month"] = "11",
-				["year"] = "2013",
+				["hour"] = 4,
+				["day"] = 11,
+				["month"] = 11,
+				["year"] = 2013,
 			},
 			["frequency"] = "weekly",
 			["characters"] = {
@@ -1524,7 +1651,7 @@ end
 function GetErDone:test_completion()
 	local trackable_incomplete = { 
 		["trackable_incomplete"] = { 
-			["name"] = "test",
+			["name"] = "trackable_incomplete",
 			["ownedBy"] = "",
 			["reset"] = { 
 				["hour"] = 4,
@@ -1542,7 +1669,7 @@ function GetErDone:test_completion()
 	}
 	local trackable_complete = { 
 		["trackable_complete"] = { 
-			["name"] = "test",
+			["name"] = "trackable_complete",
 			["ownedBy"] = "",
 			["reset"] = { 
 				["hour"] = 4,
@@ -1560,7 +1687,7 @@ function GetErDone:test_completion()
 	}
 	local trackable_inactive = { 
 		["trackable_inactive"] = { 
-			["name"] = "test",
+			["name"] = "trackable_inactive",
 			["ownedBy"] = "",
 			["reset"] = { 
 				["hour"] = 4,
@@ -1577,7 +1704,7 @@ function GetErDone:test_completion()
 		}
 	}
 	local compound_one_complete = {
-			["name"] = "test",
+			["name"] = "compound_one_complete",
 			["active"] = true,
 			["comprisedOf"] = {
 				{["id"] = "trackable_complete", ["type"] = "trackable_complete"},
@@ -1587,7 +1714,7 @@ function GetErDone:test_completion()
 			["childCompletionQuantity"] = 1,
 	}
 	local compound_half_complete = {
-			["name"] = "test",
+			["name"] = "compound_half_complete",
 			["active"] = true,
 			["comprisedOf"] = {
 				{["id"] = "trackable_complete", ["type"] = "trackable_complete"},
@@ -1598,7 +1725,7 @@ function GetErDone:test_completion()
 			["childCompletionQuantity"] = 1,
 	}
 	local compound_quantity_two = {
-			["name"] = "test",
+			["name"] = "compound_quantity_two",
 			["active"] = true,
 			["comprisedOf"] = {
 				{["id"] = "trackable_complete", ["type"] = "trackable_complete"},
@@ -1609,7 +1736,7 @@ function GetErDone:test_completion()
 			["childCompletionQuantity"] = 2,
 	}
 	local compound_compound = {
-			["name"] = "test",
+			["name"] = "compound_compound",
 			["active"] = true,
 			["comprisedOf"] = {
 				"compound_one_complete",
@@ -1620,7 +1747,7 @@ function GetErDone:test_completion()
 			["childCompletionQuantity"] = 2,
 	}
 	local compound_mixed = {
-			["name"] = "test",
+			["name"] = "compound_mixed",
 			["active"] = true,
 			["comprisedOf"] = {
 				"compound_one_complete",
