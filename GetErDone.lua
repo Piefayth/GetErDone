@@ -236,6 +236,13 @@ options = {
 						desc = "",
 						func = function() GetErDone:test_completion() end,
 					},
+					testtree = {
+						order = 98,
+						type = "execute",
+						name = "testtree",
+						desc = "",
+						func = function() GetErDone:createIngameList() end,
+					},
 				},
 			},
 		},
@@ -595,7 +602,7 @@ end
 function GetErDone:createAceTree(compound_id, showAll)
 	local tree = {}
 	for k, child_id in pairs(self.db.global.compounds[compound_id].comprisedOf) do
-		if self:IsCompoundId(child_id) then
+		if self:isCompoundId(child_id) then
 			table.insert(tree, { value = child_id, text = self:createCompoundTextForAceTree(child_id), visible = self:getTreeDisplay(child_id, nil, showAll), children = self:createAceTree(child_id, showAll) } )
 		else
 			table.insert(tree, self:createTrackableTree(child_id.id, child_id.type))
@@ -611,7 +618,8 @@ function GetErDone:createTrackableTree(id, type)
 			table.insert(characters, { value = character, text = self:createCharacterCompletionText(id, type, character) })
 		end
 	end
-	local trackable = { value = self:toMergedId(child_id), text = self:createTrackableTextForAceTree(child_id.id, child_id.type), visible = self:getTreeDisplay(child_id.id, child_id.type, showAll, character), children = characters}
+	local trackable = { value = self:toMergedId(id, type), text = self:createTrackableTextForAceTree(id, type), 
+						visible = self:getTreeDisplay(id, type, showAll, character), children = characters}
 	return trackable
 end
 
@@ -1007,8 +1015,11 @@ end
 
 function GetErDone:getTrackableChildren(owner)
 	local children = {}
-	for k, id in pairs(self.db.global.compounds[owner].comprisedOf) do
-		if not self:IsCompoundId(id) then
+	local compound = self.db.global.compounds[owner]
+	if compound == nil then return children end
+	if compound.comprisedOf == nil then return children end
+	for k, id in pairs(compound.comprisedOf) do
+		if not self:isCompoundId(id) then
 			table.insert(children, id)
 		end
 	end
@@ -1022,8 +1033,11 @@ function GetErDone:getCompoundChildren(owner)
 		return self:getUnownedCompounds()
 	else
 		local children = {}
-		for k, id in pairs(self.db.global.compounds[owner].comprisedOf) do
-			if self:IsCompoundId(id) then
+		local compound = self.db.global.compounds[owner]
+		if compound == nil then return children end
+		if compound.comprisedOf == nil then return children end
+		for k, id in pairs(compound.comprisedOf) do
+			if self:isCompoundId(id) then
 				table.insert(children, id)
 			end
 		end
@@ -1046,7 +1060,7 @@ function GetErDone:getUnownedTrackables()
 	for id, v in pairs(self.db.global.trackables) do
 		for type, vv in pairs(v) do
 			if vv.ownedBy == "" then
-				table.insert(self:toMergedId(id, type))
+				table.insert(t, self:toMergedId(id, type))
 			end
 		end
 	end
@@ -1063,7 +1077,7 @@ function GetErDone:getCharacters()
 end
 
 function GetErDone:getIndent(n)
-	return string:rep(NESTING_INDENT, n)
+	return string.rep(NESTING_INDENT, n)
 end
 
 
@@ -1272,12 +1286,12 @@ end
 
 function GetErDone:refreshTrackableList()
 	widgetManager["trackableFrame"]:ReleaseChildren()
-	for k, v in pairs(self:getTrackableChildren(self.db.global.options.optCompound)) do
-		print(self.db.global.trackables[v[1]][v[2]].name)
+	for k, v in pairs(self:getTrackableChildren(self.db.global.compounds[self.db.global.options.optCompound])) do
+		self:debug(self.db.global.trackables[k][v].name)
 		local label = AceGUI:Create("InteractiveLabel")
-		label:SetText(self.db.global.trackables[v[1]][v[2]].name)
+		label:SetText(self.db.global.trackables[k][v].name)
 		label:SetHighlight(.5, .5, 0, .5)
-		label:SetCallback("OnClick", function(widgetx) self:clickTrackableLabel(widgetx, {v[1], v[2]}) end)
+		label:SetCallback("OnClick", function(widgetx) self:clickTrackableLabel(widgetx, {k, v}) end)
 		widgetManager["trackableFrame"]:AddChild(label)
 	end
 end
@@ -1409,6 +1423,20 @@ function GetErDone:getTrackableNameForWidget(widget)
 		widget:SetText(name)
 		widget:SetDisabled(true)
 	end
+end
+
+function GetErDone:createIngameList()
+    local f = AceGUI:Create("Frame")
+    f:SetCallback("OnClose",function(widget) AceGUI:Release(widget) end)
+    f:SetLayout("Fill")
+    f:SetHeight(800)
+    
+    local mainTree = AceGUI:Create("TreeGroup")
+    mainTree:SetTree(self:getAceTree(false))
+    
+    f:AddChild(mainTree)
+    
+    widgetManager["mainTree"] = mainTree
 end
 -----------------------------
 ------------ TEST CODE ------
@@ -1574,7 +1602,7 @@ function GetErDone:test_completion()
 			["active"] = true,
 			["comprisedOf"] = {
 				{["id"] = "trackable_complete", ["type"] = "trackable_complete"},
-				{["id"] = "trackable_inactive", ["type"] = "trackable_inactive"},
+				{["id"] = "trackable_incomplete", ["type"] = "trackable_incomplete"},
 			},
 			["ownedBy"] = "",
 			["displayChildren"] = true,
@@ -1623,7 +1651,7 @@ function GetErDone:test_completion()
 		table.insert(failures, "trackable_complete failed")
 	end
 
-	if self:IsTrackableComplete("trackable_inactive", "trackable_inactive", character) then
+	if not self:IsTrackableComplete("trackable_inactive", "trackable_inactive", character) then
 		table.insert(failures, "trackable_inactive failed")
 	end
 
