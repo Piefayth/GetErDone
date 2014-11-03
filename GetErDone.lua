@@ -9,18 +9,18 @@ local widgetManager = {}
 
 local events = 	{
 	["monster"] = {
-		{
-			["event"] = "LOOT_OPENED", ["callback"] = "HandleEventMonster"
-		}, 
-		{
-			["event"] = "OTHER_EVENT", ["callback"] = "HandleEventMonster"
-		}, 
+		{ ["event"] = "LOOT_OPENED", ["callback"] = "handleEventMonster" }, 
 	},
 	["quest"] = {
-		{
-			["event"] = "QUEST_TURNED_IN", ["callback"] = "HandleEventQuest"
-		},
-	}
+		{ ["event"] = "QUEST_TURNED_IN", ["callback"] = "handleEventQuest" },
+		{ ["event"] = "QUEST_COMPLETE", ["callback"] = "handleEventQuest" },
+	},
+	["spell"] = {
+		{ ["event"] = "UNIT_SPELLCAST_SUCCEEDED", ["callback"] = "handleEventSpell" },
+	},
+	["item"] = {
+		{ ["event"] = "LOOT_OPENED", ["callback"] = "handleEventItem" },
+	},
 }
 
 options = {
@@ -94,7 +94,7 @@ options = {
 						desc = "Which character is this task for? Your character will not appear in this list until you've logged in with it.",
 						style = "dropdown",
 						values = function()
-							t = {["All"] = "All"}
+							t = {["All"] = CHARACTERS_ALL}
 							for k, v in pairs(GetErDone:GetOption("characters")) do
 								t[k] = v
 							end
@@ -242,9 +242,10 @@ options = {
 	}
 
 
-MONSTER = "monster"
-QUEST = "quest"
-ITEM = "item"
+TYPE_MONSTER = "monster"
+TYPE_QUEST = "quest"
+TYPE_ITEM = "item"
+TYPE_SPELL = "spell"
 CUSTOM_PREFIX = "c_"
 COMPOUND_LEVEL_BOTTOM = 0
 COMPOUND_LEVEL_MID = 1
@@ -262,6 +263,10 @@ REGION_CN = 5
 COMPLETION_CACHE_ALL_CHARACTERS = 1
 TRACKABLE_DB_PREFIX = "trackable_"
 TRACKABLE_DB_SEGMENT_SIZE = 10000
+CHARACTERS_ALL = "all"
+NESTING_INDENT = "    "
+COULD_NOT_FIND_TRACKABLE_IN_DB = ""
+MERGED_DELIMITER = ":"
 local debugMode = true
 
 
@@ -288,13 +293,6 @@ function GetErDone:GetOption(v)
 	return option
 end
 
-function GetErDone:getCharactersFromOptions()
-	local chars = self.db.global.options.character
-	if chars == "All" then
-		return self:prepareNames(self.db.global.characters)
-	end
-	return { chars }
-end
 
 function GetErDone:addCompound()
 	if self.db.global.options.newCompoundName == "" or self.db.global.options.newCompoundName == nil then return false end
@@ -313,6 +311,7 @@ function GetErDone:addCompound()
 	compound_id = self.db.global.options.compoundId or GetErDone:generateNextCompoundId()
 	self.db.global.compounds[compound_id] = compound
 
+	self:invalidateAceTree()
 	return true
 end
 
@@ -345,7 +344,8 @@ function GetErDone:LoadTrackableName(id, type)
 			end
 		end
 	end
-	return type .. " not found in database."
+	self:debug(type .. " not found in database")
+	return COULD_NOT_FIND_TRACKABLE_IN_DB
 end
 
 function GetErDone:AddTrackable(id, type, name, owner, frequency, characters, quantity)
@@ -358,7 +358,7 @@ function GetErDone:AddTrackable(id, type, name, owner, frequency, characters, qu
 			["ownedBy"] = owner,
 			["frequency"] = frequency,
 			["reset"] = self:NextReset(frequency, self.db.global.region),
-			["characters"] = characters,
+			["characters"] = self:prepareCharacters(characters),
 			["completionQuantity"] = tonumber(quantity)
     	}
     else
@@ -368,6 +368,7 @@ function GetErDone:AddTrackable(id, type, name, owner, frequency, characters, qu
     self:updateOwner(owner, id, type)
 
     self:refreshTrackableList()
+	self:invalidateAceTree()
 
 
     --Zero Out Options Fields--
@@ -376,6 +377,7 @@ function GetErDone:AddTrackable(id, type, name, owner, frequency, characters, qu
 	widgetManager["trackableID"]:SetText("")
 	widgetManager["trackableQuantity"]:SetText("")
 end
+
 
 function GetErDone:updateOwner(ownerId, childId, childType)
 	if ownerId == nil or ownerId == "" then return end
@@ -399,17 +401,9 @@ function GetErDone:updateChild(compound_id, child_id, child_type)
 		self.db.global.compounds[child_id].ownedBy = compound_id
 	else
 		if self:IsNullOrEmpty(self.db.global.trackables[id]) or self:IsNullOrEmpty(self.db.global.trackables[id][type]) then
-			self:AddTrackable(child_id, child_type, self:LoadTrackableName(child_id, child_type), compound_id, "", "All", 1)
+			self:AddTrackable(child_id, child_type, self:LoadTrackableName(child_id, child_type), compound_id, "", CHARACTERS_ALL, 1)
 		end
 	end
-end
-
-function GetErDone:prepareNames(names)
-	local newNames = {}
-	for k, v in pairs(names) do
-		table.insert(newNames, k)
-	end
-	return newNames
 end
 
 function GetErDone:ensureTrackable(id)
@@ -467,11 +461,15 @@ function GetErDone:OnEnable()
 	self:UpdateResets()
 end
 
+function GetErDone:OnUpdate()
+	
+end
+
 function GetErDone:LoadDefaults()
 	if self.db.global.defaultsLoaded == nil then
 		for id, type in pairs(defaults.trackables) do
 			local trackable = defaults[type]
-			self:AddTrackable(id, type, self:LoadTrackableName(id, type), nil, trackable.frequency, "All", trackable.quantity)
+			self:AddTrackable(id, type, self:LoadTrackableName(id, type), nil, trackable.frequency, CHARACTERS_ALL, trackable.quantity)
 		end
 		for compound_id, compound in pairs(defaults.compounds) do
 			self.db.global.options.newCompoundName = compound.name
@@ -497,36 +495,175 @@ function GetErDone:registerHandlers()
 	end
 end
 
-function GetErDone:HandleEventMonster(event) 
+function GetErDone:handleEventMonster(event) 
 	if event == "LOOT_OPENED" then
-		local numChecked = 0
 		local numItems = GetNumLootItems()
 		for slotId = 1, numItems, 1 do
-			-- TODO deal with duplicate items ie multiple drops from the same mob
-			mobList = { GetLootSourceInfo(slotId) }
-			for k, v in pairs(mobList) do
-				if v and type(v) == "string" then
-					self:debug("Checking mob id " .. v)
-					self:CheckEvent(MONSTER, v)
-				end
+			local mobList = { GetLootSourceInfo(slotId) }
+			-- create set to deal with duplicate items
+			local mobSet = self:createSet(self:getSpawnUidIdPairs(mobList))
+			for k, v in pairs(mobSet) do
+				self:checkEvent(v, TYPE_MONSTER)
 			end
 		end
 	end
 end
 
-function GetErDone:HandleEventQuest(event)
-	print("butts")
-end
-
-function GetErDone:CheckEvent(type, guid)
-	if type == MONSTER then
-		local id = self:getNpcId(guid)
-		if id == nil then return end
-
-		if self.db.global.trackables[id] ~= nil and self.db.global.trackables[id][type] ~= nil then
-			self:CompleteTrackable(id, type, COMPLETE_INCREMENT)
+function GetErDone:handleEventSpell(event, ...)
+	if event == "UNIT_SPELLCAST_SUCCEEDED" then
+		local unit, _, _, _, spellId = ...
+		if unit == UNIT_PLAYER then
+			self:checkEvent(spellId, TYPE_SPELL)
 		end
 	end
+end
+
+function GetErDone:handleEventItem(event)
+	if event == "LOOT_OPENED" then
+		local numItems = GetNumLootItems()
+		for slotId = 1, numItems, 1 do
+			if GetLootSourceInfo(slotId) ~= nil then -- ensure it's something we just looted
+				local id = self:getItemIdFromLink(GetLootSlotLink(slotId))
+				self:checkEvent(id, TYPE_ITEM)
+			end
+		end
+	end
+end
+
+local questCompleteList = {}
+
+function GetErDone:handleEventQuest(event)
+	if event == "QUEST_COMPLETE" then
+		questCompleteList = {} -- blank out the current quests that are to be completed
+		local quests = { GetGossipAvailableQuests() }
+	end
+	-- TODO finish lol
+end
+
+function GetErDone:checkEvent(id, type)
+	if id == nil then return end
+	self:debug("Checking " .. type .. " id " .. id .. " for completion...")
+	if not self:IsNullOrEmpty(self.db.global.trackables[id]) and not self:IsNullOrEmpty(self.db.global.trackables[id][type]) then
+		self:CompleteTrackable(id, type, COMPLETE_INCREMENT)
+		self:debug("Incremented")
+	end
+end
+
+-- Takes a list of GUIDs and splits them into { [spawn_uid] = [mob_id] }
+-- spawn_uid uniquely identifies the particular mob
+function GetErDone:getSpawnUidIdPairs(moblist)
+	local ret = {}
+	for k, guid in pairs(moblist) do
+		local mob_id, spawn_uid = self:getNpcId(guid)
+		if mob_id ~= 0 then
+			ret[spawn_uid] = mob_id
+		end
+	end 
+	return ret
+end
+
+
+-----------------------------------------------------------------
+--------------------- GED TREE TO ACE TREE ----------------------
+-----------------------------------------------------------------
+
+local aceTree = {}
+
+function GetErDone:invalidateAceTree()
+	aceTree = {}
+end
+
+function GetErDone:getAceTree(showAll)
+	if not self:IsNullOrEmpty(aceTree) then
+		return aceTree
+	end
+
+	for k, topLevelCompoundId in pairs(self:getUnownedCompounds()) do
+		table.insert(aceTree, { value = topLevelCompoundId, text = self:createCompoundTextForAceTree(topLevelCompoundId), 
+					visible = self:getTreeDisplay(topLevelCompoundId, nil, showAll), children = self:createAceTree(topLevelCompoundId, showAll) } )
+	end
+
+	for k, merged in pairs(self:getUnownedTrackables()) do
+		local id, type = self:fromMergedId(merged)
+		local trackable = self:createTrackableTree(id, type)
+		table.insert(aceTree, trackable)
+	end
+
+	return aceTree
+end
+
+function GetErDone:createAceTree(compound_id, showAll)
+	local tree = {}
+	for k, child_id in pairs(self.db.global.compounds[compound_id].comprisedOf) do
+		if self:IsCompoundId(child_id) then
+			table.insert(tree, { value = child_id, text = self:createCompoundTextForAceTree(child_id), visible = self:getTreeDisplay(child_id, nil, showAll), children = self:createAceTree(child_id, showAll) } )
+		else
+			table.insert(tree, self:createTrackableTree(child_id.id, child_id.type))
+		end
+	end
+	return tree
+end
+
+function GetErDone:createTrackableTree(id, type)
+	local characters = {}
+	for character, v in pairs(self.db.global.trackables[id][type].characters) do
+		if not self:IsComplete(id, type, character) then
+			table.insert(characters, { value = character, text = self:createCharacterCompletionText(id, type, character) })
+		end
+	end
+	local trackable = { value = self:toMergedId(child_id), text = self:createTrackableTextForAceTree(child_id.id, child_id.type), visible = self:getTreeDisplay(child_id.id, child_id.type, showAll, character), children = characters}
+	return trackable
+end
+
+function GetErDone:createCharacterCompletionText(id, type, character) 
+	local trackable = self.db.global.trackables[id][type]
+	return character .. " " .. tostring(trackable.characters[character]) .. "/" .. trackable.completionQuantity
+end
+
+function GetErDone:createTrackableTextForAceTree(id, type)
+	local trackable = self.db.global.trackables[id][type]
+	return trackable.name
+end
+
+function GetErDone:createCompoundTextForAceTree(compound_id)
+	local compound = self.db.global.compounds[compound_id]
+	return compound.name
+end
+
+function GetErDone:getTreeDisplay(id, type, showAll)
+	if showAll then return true end
+
+	local item
+	if type == nil then 
+		item = self.db.global.compounds[id]
+	else
+		item = self.db.global.trackables[id][type]
+	end
+
+	-- active check
+	if not item.active then
+		return false
+	end
+
+	-- completion check
+	if self:IsCompleteOnAllCharacters(id, type) then
+		return false
+	end
+
+	-- displayChildren check
+	if item.ownedBy ~= "" then
+		return self.db.global.compounds[item.ownedBy].displayChildren
+	end
+
+	return true
+end
+
+function GetErDone:toMergedId(id, type)
+	return id .. MERGED_DELIMITER .. type
+end
+
+function GetErDone:fromMergedId(merged)
+	return strsplit(MERGED_DELIMITER, merged)
 end
 
 --------------------------------------------------------------------
@@ -551,6 +688,31 @@ function GetErDone:CompleteTrackable(id, type, status)
 		end 
 		self:InvalidateCompletionCache(COMPLETION_CACHE_ALL_CHARACTERS)
 	end	
+
+	self:invalidateAceTree()
+end
+
+function GetErDone:IsComplete(id, type, character)
+	if type == nil then
+		return self:IsCompoundComplete(id, character)
+	else
+		return self:IsTrackableComplete(id, type, character)
+	end
+end
+
+function GetErDone:IsCompleteOnAllCharacters(id, type)
+	for k, character in pairs(self.db.global.characters) do
+		if type == nil then
+			if not self:IsCompoundComplete(id, character) then
+				return false
+			end
+		else
+			if not self:IsTrackableComplete(id, type, character) then
+				return false
+			end
+		end
+	end
+	return true
 end
 
 function GetErDone:IsCompoundComplete(compound_id, character)
@@ -585,8 +747,8 @@ end
 
 function GetErDone:IsTrackableComplete(id, type, character)
 	local trackable = self.db.global.trackables[id][type]
-	if not trackable.active then return false end
-	if trackable.characters[character] == nil then return false end
+	if not trackable.active then return true end -- note changed this from false
+	if trackable.characters[character] == nil then return true end -- this too
 
 	return trackable.characters[character] >= trackable.completionQuantity
 end
@@ -736,6 +898,27 @@ end
 ----------------------- UTIL METHODS -------------------------------
 --------------------------------------------------------------------
 
+-- creates a set where the keys are unique
+-- the values can be whatever you like, they won't get checked
+-- uses == for equality testing - so probably don't use on anything with a table as a key
+function GetErDone:createSet(dict)
+	local set = {}
+	for k, v in pairs(dict) do
+		local add = true
+		for kCheck, vCheck in pairs(set) do
+			if kCheck == k then 
+				add = false
+				break
+			end
+		end
+
+		if add then
+			set[k] = v
+		end
+	end
+	return set
+end
+
 function GetErDone:debug(message)
 	if debugMode then
 		print(message)
@@ -757,11 +940,16 @@ function GetErDone:contains(dict, value)
 end
 
 function GetErDone:getNpcId(guid)
+	--  [Unit type]-0-[server ID]-[instance ID]-[zone UID]-[ID]-[Spawn UID]
 	if guid then
-		local unit_type, _, _, _, _, mob_id = strsplit('-', guid)
-		return mob_id
+		local unit_type, _, server_id, instance_id, zone_uid, mob_id, spawn_uid = strsplit('-', guid)
+		return mob_id, spawn_uid
 	end
 	return 0
+end
+
+function GetErDone:getItemIdFromLink(link)
+
 end
 
 function GetErDone:GetCompoundLevel(compound_id)
@@ -781,9 +969,105 @@ function GetErDone:GetCompoundLevel(compound_id)
 	return COMPOUND_LEVEL_BOTTOM
 end
 
+-- only works on tables
 function GetErDone:IsNullOrEmpty(dict)
 	return dict == nil or next(dict) == nil
 end
+
+----------------------------------------------------------------
+------------------ UI FUNCTIONS THAT SHOULDNT BE ---------------
+----------------------------------------------------------------
+
+function GetErDone:prepareCharacters(characters)
+	local chars = {}
+	if characters[CHARACTERS_ALL] ~= nil then
+		for name, v in pairs(self.db.global.characters) do
+			chars[name] = 0
+		end
+	else
+		for k, name in pairs(characters) do
+			chars[name] = 0
+		end
+	end
+	return chars
+end
+
+
+function GetErDone:getCompoundParent(compoundID)
+	return self.db.global.compounds[compoundID].ownedBy
+end
+
+function GetErDone:compoundNumParents(compoundid)
+	if self.db.global.compounds[compoundid].ownedBy == "" then 
+		return 0
+	else
+		return 1 + self:compoundNumParents(self.db.global.compounds[compoundid].ownedBy)
+	end
+end
+
+function GetErDone:getTrackableChildren(owner)
+	local children = {}
+	for k, id in pairs(self.db.global.compounds[owner].comprisedOf) do
+		if not self:IsCompoundId(id) then
+			table.insert(children, id)
+		end
+	end
+	return children
+end
+
+--Name is a little ambiguous, this is the equivalent of "getTrackableChildren"
+--@owner = compoundid
+function GetErDone:getCompoundChildren(owner)
+	if owner == "" or owner == nil then
+		return self:getUnownedCompounds()
+	else
+		local children = {}
+		for k, id in pairs(self.db.global.compounds[owner].comprisedOf) do
+			if self:IsCompoundId(id) then
+				table.insert(children, id)
+			end
+		end
+		return children
+	end
+end
+
+function GetErDone:getUnownedCompounds()
+	local t = {}
+	for k,v in pairs(self.db.global.compounds) do
+		if v.ownedBy == "" then
+			table.insert(t,k)
+		end
+	end
+	return t
+end
+
+function GetErDone:getUnownedTrackables()
+	local t = {}
+	for id, v in pairs(self.db.global.trackables) do
+		for type, vv in pairs(v) do
+			if vv.ownedBy == "" then
+				table.insert(self:toMergedId(id, type))
+			end
+		end
+	end
+	return t
+end
+
+
+function GetErDone:getCharacters()
+	local t = {["All"] = CHARACTERS_ALL}
+	for k, v in pairs(GetErDone:GetOption("characters")) do
+		t[k] = v
+	end
+	return t
+end
+
+function GetErDone:getIndent(n)
+	return string:rep(NESTING_INDENT, n)
+end
+
+
+
 
 ---------------------------------UI CODE-------------------------------------------
 
@@ -872,9 +1156,10 @@ function GetErDone:testui()
 --- New Trackable Interface ---
 
 	local newTrackableGroup = AceGUI:Create("InlineGroup")
-	local trackableName = AceGUI:Create("Label")
-	local trackableID = AceGUI:Create("EditBox")
 	local trackableType = AceGUI:Create("Dropdown")
+	local trackableID = AceGUI:Create("EditBox")
+	local trackableName = AceGUI:Create("EditBox")
+	local trackableSpacer = AceGUI:Create("Heading")
 	local trackableCharacter = AceGUI:Create("Dropdown")
 	local trackableFrequency = AceGUI:Create("Dropdown")
 	local addTrackableButton = AceGUI:Create("Button")
@@ -895,7 +1180,9 @@ function GetErDone:testui()
 			widgetManager["addTrackableButton"]:SetDisabled(true)
 		end)
 
-	trackableName:SetText(" ")
+	trackableSpacer:SetText("")
+
+	trackableName:SetText("")
 
 	trackableID:SetCallback("OnEnterPressed", function(widget, event, text) 
 		self:submitIDEdit(widget, event, text) 
@@ -937,9 +1224,10 @@ function GetErDone:testui()
 	
 
 	f:AddChild(newTrackableGroup)
-	newTrackableGroup:AddChild(trackableName)
-	newTrackableGroup:AddChild(trackableID)
 	newTrackableGroup:AddChild(trackableType)
+	newTrackableGroup:AddChild(trackableID)
+	newTrackableGroup:AddChild(trackableName)
+	newTrackableGroup:AddChild(trackableSpacer)
 	newTrackableGroup:AddChild(trackableFrequency)
 	newTrackableGroup:AddChild(trackableCharacter)
 	newTrackableGroup:AddChild(trackableQuantity)
@@ -981,19 +1269,6 @@ function GetErDone:buttonCheck(t)
 	end
 end
 
-function GetErDone:prepareCharacters(characters)
-	local chars = {}
-	if characters["All"] ~= nil then
-		for name, v in pairs(self.db.global.characters) do
-			chars[name] = 0
-		end
-	else
-		for k, name in pairs(characters) do
-			chars[name] = 0
-		end
-	end
-	return chars
-end
 
 function GetErDone:refreshTrackableList()
 	widgetManager["trackableFrame"]:ReleaseChildren()
@@ -1067,7 +1342,7 @@ end
 
 function GetErDone:setTrackableTypeDropdown(widget)
 	widget:SetValue(self.db.global.options.typechoice)
-	widgetManager.trackableName:SetText(self:LoadTrackableName(self.db.global.options.trackableID, self.db.global.options.typechoice))
+	self:setTrackableNameForWidget(widgetManager.trackableName)
 	GetErDone:buttonCheck("trackable")
 end
 
@@ -1101,7 +1376,7 @@ end
 
 function GetErDone:populateIDEdit(widget)
 	widget:SetText(self.db.global.options.trackableID)
-	widgetManager.trackableName:SetText(self:LoadTrackableName(self.db.global.options.trackableID, self.db.global.options.typechoice))
+	self:setTrackableNameForWidget(widgetManager.trackableName)
 	GetErDone:buttonCheck("trackable")
 end
 
@@ -1127,70 +1402,13 @@ function GetErDone:populateCompoundEdit(widget)
 	GetErDone:buttonCheck("compound")
 end
 
-function GetErDone:getCompoundParent(compoundID)
-	return self.db.global.compounds[compoundID].ownedBy
-end
-
-function GetErDone:compoundNumParents(compoundid)
-	if self.db.global.compounds[compoundid].ownedBy == "" then 
-		return 0
-	else
-		return 1 + self:compoundNumParents(self.db.global.compounds[compoundid].ownedBy)
+-- if the name is found in the database, then set the trackable box to that and disable editing
+function GetErDone:getTrackableNameForWidget(widget)
+	local name = self:LoadTrackableName(self.db.global.options.trackableID, self.db.global.options.typechoice)
+	if name ~= COULD_NOT_FIND_TRACKABLE_IN_DB then
+		widget:SetText(name)
+		widget:SetDisabled(true)
 	end
-end
-
-function GetErDone:getTrackableChildren(owner)
-	t = {}
-      for k,v in pairs(self.db.global.trackables) do
-      	for kk,vv in pairs(v) do
-	        if vv.ownedBy == owner then
-	          table.insert(t,{k, kk}) --We're making a able of {id, type}
-	        end
-	    end
-      end
-    return t
-end
-
---Name is a little ambiguous, this is the equivalent of "getTrackableChildren"
---@owner = compoundid
-function GetErDone:getCompoundChildren(owner)
-	t = {}
-	if owner ~= "" and owner ~= nil then
-		for k,v in pairs(self.db.global.compounds) do
-			if v.ownedBy == owner then
-				table.insert(t,k)
-			end
-		end
-	else
-		return self:getUnownedCompounds()
-	end
-		return t 
-end
-
-function GetErDone:getUnownedCompounds()
-	t = {}
-	for k,v in pairs(self.db.global.compounds) do
-		if v.ownedBy == "" then
-			table.insert(t,k)
-		end
-	end
-	return t
-end
-
-function GetErDone:getCharacters()
-	t = {["All"] = "All"}
-	for k, v in pairs(GetErDone:GetOption("characters")) do
-		t[k] = v
-	end
-	return t
-end
-
-function GetErDone:getIndent(n)
-	result = ""
-	for i=1, n do
-		result = result .. "    "
-	end
-	return result
 end
 -----------------------------
 ------------ TEST CODE ------
@@ -1259,8 +1477,8 @@ end
 function GetErDone:testeventkill()
 	local guid1 = "Creature-0-1403-870-139-1-0000D2B633"
 	local guid2 = "Creature-0-1403-870-139-2-0000D2B633"
-	self:checkEvent(MONSTER, guid1)
-	self:checkEvent(MONSTER, guid2)
+	--self:checkEvent(guid1TYPE_MONSTER, )
+	--self:checkEvent(TYPE_MONSTER, guid2)
 end
 
 function GetErDone:testeventkill_one()
@@ -1272,15 +1490,7 @@ function GetErDone:testeventkill_one()
 end
 
 function GetErDone:addThing()
-	local id, compound = self:createCompound()
-	compound.conditions = {["quantity"] = 2}
-	self.db.global.options.character = "All"
-	compound.characters = self:getCharactersFromOptions()
-	compound.reset = self:nextReset("daily", "EU")
-	compound.name = "test compound"
-	self.db.global.compounds[id] = compound
-	self:AddTrackable("1", MONSTER, "test1", id)
-	self:AddTrackable("2", MONSTER, "test2", id)
+	
 end
 
 function GetErDone:test_completion()
