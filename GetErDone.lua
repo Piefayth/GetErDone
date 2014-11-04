@@ -1543,12 +1543,14 @@ function GetErDone:createIngameList()
     f:SetCallback("OnClose",function(widget) AceGUI:Release(widget) end)
     f:SetLayout("Fill")
     f:SetHeight(800)
+    f.frame:SetBackdropColor(0,0,0,0)
+    f.frame:SetBackdropBorderColor(0,0,0,0)
     
     local mainTree = AceGUI:Create("TreeGroup")
     mainTree:SetTree(self:getAceTree(false))
-    
+
     f:AddChild(mainTree)
-    
+
     widgetManager["mainTree"] = mainTree
 end
 
