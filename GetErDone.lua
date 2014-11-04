@@ -19,7 +19,7 @@ local events = 	{
 		{ ["event"] = "UNIT_SPELLCAST_SUCCEEDED", ["callback"] = "handleEventSpell" },
 	},
 	["item"] = {
-		{ ["event"] = "LOOT_OPENED", ["callback"] = "handleEventItem" },
+		--{ ["event"] = "LOOT_OPENED", ["callback"] = "handleEventItem" },
 	},
 }
 
@@ -541,8 +541,10 @@ function GetErDone:handleEventMonster(event)
 			local mobList = { GetLootSourceInfo(slotId) }
 			-- create set to deal with duplicate items
 			local mobSet = self:createSet(self:getSpawnUidIdPairs(mobList))
+			self.db.global.testset = mobSet
 			for k, v in pairs(mobSet) do
 				self:checkEvent(v, TYPE_MONSTER)
+				self:checkEvent(v, TYPE_ITEM)
 			end
 		end
 	end
@@ -558,22 +560,14 @@ function GetErDone:handleEventSpell(event, ...)
 end
 
 function GetErDone:handleEventItem(event)
-	if event == "LOOT_OPENED" then
-		local numItems = GetNumLootItems()
-		for slotId = 1, numItems, 1 do
-			if GetLootSourceInfo(slotId) ~= nil then -- ensure it's something we just looted
-				local id = self:getItemIdFromLink(GetLootSlotLink(slotId))
-				self:checkEvent(id, TYPE_ITEM)
-			end
-		end
-	end
+	-- nil
 end
 
 local questCompleteList = {}
 
 function GetErDone:handleEventQuest(event)
 	if event == "QUEST_COMPLETE" then
-		questCompleteList = {} -- blank out the current quests that are to be completed
+		local questCompleteList = {} -- blank out the current quests that are to be completed
 		local quests = { GetGossipAvailableQuests() }
 	end
 	-- TODO finish lol
@@ -584,7 +578,6 @@ function GetErDone:checkEvent(id, type)
 	self:debug("Checking " .. type .. " id " .. id .. " for completion...")
 	if not self:IsNullOrEmpty(self.db.global.trackables[id]) and not self:IsNullOrEmpty(self.db.global.trackables[id][type]) then
 		self:CompleteTrackable(id, type, COMPLETE_INCREMENT)
-		self:debug("Incremented")
 	end
 end
 
@@ -594,7 +587,7 @@ function GetErDone:getSpawnUidIdPairs(moblist)
 	local ret = {}
 	for k, guid in pairs(moblist) do
 		local mob_id, spawn_uid = self:getNpcId(guid)
-		if mob_id ~= 0 then
+		if mob_id ~= 0 and spawn_uid ~= nil then
 			ret[spawn_uid] = mob_id
 		end
 	end 
@@ -632,7 +625,6 @@ function GetErDone:getAceTree(showAll)
 		table.insert(aceTree, trackable)
 	end
 
-	self.db.global.tree = aceTree
 	return aceTree
 end
 
@@ -709,7 +701,7 @@ function GetErDone:getAceTreeCharacter(showAll, character)
 	else
 		self:getAceTreeCharacterPrivate(showAll, character)
 	end
-	self.db.global.tree = aceTreeCharacter
+
 	return aceTreeCharacter
 end
 
@@ -1136,6 +1128,7 @@ end
 
 function GetErDone:getNpcId(guid)
 	--  [Unit type]-0-[server ID]-[instance ID]-[zone UID]-[ID]-[Spawn UID]
+	print(guid)
 	if guid then
 		local unit_type, _, server_id, instance_id, zone_uid, mob_id, spawn_uid = strsplit('-', guid)
 		return mob_id, spawn_uid
@@ -1144,7 +1137,8 @@ function GetErDone:getNpcId(guid)
 end
 
 function GetErDone:getItemIdFromLink(link)
-
+	local _, _, Color, Ltype, Id, Enchant, Gem1, Gem2, Gem3, Gem4, Suffix, Unique, LinkLvl, reforging, Name = string.find(link, "|?c?f?f?(%x*)|?H?([^:]*):?(%d+):?(%d*):?(%d*):?(%d*):?(%d*):?(%d*):?(%-?%d*):?(%-?%d*):?(%d*):?(%d*)|?h?%[?([^%[%]]*)%]?|?h?|?r?")
+	return Id
 end
 
 function GetErDone:GetCompoundLevel(compound_id)
