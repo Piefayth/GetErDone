@@ -164,6 +164,16 @@ options = {
 							--CALL FUNCTION TO CREATE NEW COMPOUND HERE--
 						end
 					},
+					debug = {
+						order = 50,
+						type = "execute",
+						name = "toggle debug",
+						desc = "",
+						func = function() 
+							print("debug disabled")
+							debugMode = false 
+						end,
+					},
 					separator2 = {
 						order = 89,
 						type = "description",
@@ -281,7 +291,7 @@ NESTING_INDENT = "    "
 COULD_NOT_FIND_TRACKABLE_IN_DB = ""
 MERGED_DELIMITER = ":"
 TREE_CHARACTER_STRING_LENGTH = 80
-local debugMode = true
+debugMode = true
 
 
 
@@ -1128,7 +1138,6 @@ end
 
 function GetErDone:getNpcId(guid)
 	--  [Unit type]-0-[server ID]-[instance ID]-[zone UID]-[ID]-[Spawn UID]
-	print(guid)
 	if guid then
 		local unit_type, _, server_id, instance_id, zone_uid, mob_id, spawn_uid = strsplit('-', guid)
 		return mob_id, spawn_uid
