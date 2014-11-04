@@ -259,7 +259,7 @@ TYPE_MONSTER = "monster"
 TYPE_QUEST = "quest"
 TYPE_ITEM = "item"
 TYPE_SPELL = "spell"
-CUSTOM_PREFIX = "c_"
+CUSTOM_PREFIX = "default_"
 COMPOUND_LEVEL_BOTTOM = 0
 COMPOUND_LEVEL_MID = 1
 COMPOUND_LEVEL_TOP = 2
@@ -285,6 +285,19 @@ local debugMode = true
 
 
 
+function GetErDone:OnDisable()
+	self.db.global.options.optCompound = ""
+end
+
+---Event Handlers---
+
+---OnLogin defaults the "character" dropdown to the character you're currently logged in as.
+function GetErDone:OnLogin()
+	name, server = UnitFullName("player")
+	self.db.global.options.character = name..server
+	self.db.global.character = name..server
+end
+
 --ApplyOption is for option retention between sessions. If you click "Daily" then reloadui, it retains that selection--
 --The default behavior makes dropdowns always blank, which is annoying--
 function GetErDone:ApplyOption(k,v)
@@ -309,31 +322,47 @@ end
 
 
 function GetErDone:addCompound()
-	if self.db.global.options.newCompoundName == "" or self.db.global.options.newCompoundName == nil then return false end
-
+	if self.db.global.options.newCompoundName == "" or self.db.global.options.newCompoundName == nil then error("addCompound: empty compound name") end
 	local compound = {
 		["name"] = self.db.global.options.newCompoundName,
 		["active"] = true,
 		["comprisedOf"] = {},
 		["ownedBy"] = self.db.global.options.optCompound,
 		["displayChildren"] = self.db.global.options.compoundchildren,
-		["childCompletionQuantity"] = tonumber(self.db.global.options.compoundquantity)
+		["childCompletionQuantity"] = tonumber(self.db.global.options.compoundquantity) or 0
 	}
 
 	self.db.global.options.compoundquantity = ""
 	self.db.global.options.newCompoundName = ""
-	compound_id = self.db.global.options.compoundId or GetErDone:generateNextCompoundId()
+	local compound_id = self.db.global.options.compoundId or GetErDone:generateNextCompoundId()
 	self.db.global.compounds[compound_id] = compound
+	self:updateOwner(compound.ownedBy, compound_id, nil)
 
 	self:invalidateAceTree()
 	return true
 end
 
-function GetErDone:isCompoundId(id)
-	if type(id) == "string" then
-		return string.byte(id) == string.byte(CUSTOM_PREFIX)
+
+function GetErDone:prepareCharacters(characters)
+	print(characters)
+	local chars = {}
+	if type(characters) ~= "table" then return { [characters] = 0 } end
+	if characters == CHARACTERS_ALL then
+		print("all")
+		for name, v in pairs(self.db.global.characters) do
+			chars[name] = 0
+		end
+	else
+		print("1")
+		for name, v in pairs(characters) do
+			chars[name] = 0
+		end
 	end
-	return false
+	return chars
+end
+
+function GetErDone:isCompoundId(id)
+	return type(id) == "string"
 end
 
 function GetErDone:generateNextCompoundId()
@@ -343,6 +372,9 @@ function GetErDone:generateNextCompoundId()
 end
 
 function GetErDone:LoadTrackableName(id, type)
+	if id == nil or type == nil then
+		return COULD_NOT_FIND_TRACKABLE_IN_DB
+	end
 	local trackables = self.db.global.trackables
 	if trackables[id] ~= nil then
 		if trackables[id][type] ~= nil then
@@ -368,6 +400,7 @@ function GetErDone:AddTrackable(id, type, name, owner, frequency, characters, qu
 	self:ensureTrackable(id)
 	if self.db.global.trackables[id][type] == nil then
 		self.db.global.trackables[id][type] = {
+			["active"] = true,
 			["name"] = name,
 			["ownedBy"] = owner,
 			["frequency"] = frequency,
@@ -376,7 +409,7 @@ function GetErDone:AddTrackable(id, type, name, owner, frequency, characters, qu
 			["completionQuantity"] = tonumber(quantity)
     	}
     else
-    	self.db.global.trackables[id][type].ownedBy = owner
+    	self.db.global.trackables[id][type].ownedBy = owner -- TODO let us update more than this
     end
 
     self:updateOwner(owner, id, type)
@@ -397,12 +430,12 @@ function GetErDone:updateOwner(ownerId, childId, childType)
 	if ownerId == nil or ownerId == "" then return end
 	local owner = self.db.global.compounds[ownerId]
 	if owner == nil then error("updateOwner: ownerId points to null compound") end
-	if childType == nil then
+	if childType == nil then -- compound
 		if not self:contains(owner.comprisedOf, childId) then
 			table.insert(owner.comprisedOf, childId)
 		end
-	else
-		local idtype = {childId, childType}
+	else -- trackable
+		local idtype = { ["id"] = childId, ["type"] = childType }
 		if not self:contains(owner.comprisedOf, idtype) then
 			table.insert(owner.comprisedOf, idtype)
 		end
@@ -449,28 +482,26 @@ function GetErDone:OnEnable()
 	if self.db.global.options.frequency == nil then self.db.global.options.frequency = "" end
 	if self.db.global.options.nextCompoundId == nil then self.db.global.options.nextCompoundId = 1 end
 	if self.db.global.options.newCompoundName == nil then self.db.global.options.newCompoundName = "" end
+	if self.db.global.options.ignoredNames == nil then self.db.global.options.ignoredNames = {} end
+	if self.db.global.options.compoundchildren == nil then self.db.global.options.compoundchildren = true end
 	if self.db.global.region == nil then self.db.global.region = GetCurrentRegion() end
 	if self.db.global.completionCache == nil then self.db.global.completionCache = {} end
 
 
 
 	name, server = UnitFullName("player")
-	if self.db.global.characters[name..server] == nil then 
-		self.db.global.characters[name..server] = name .. " - " .. server
+	if self.db.global.characters[name .. server] == nil then 
+		self.db.global.characters[name .. server] = {["name"] = name, ["server"] = server}
 	end
 	self.db.global.character = name .. server
 
-	--self:registerHandlers()
+	self:registerHandlers()
 	--self:LoadDefaults()
 	self:UpdateResets()
-	self:RegisterEvent("QUEST_COMPLETE", "doeventthing", "QUEST_COMPLETE")
-	self:RegisterEvent("QUEST_FINISHED", "doeventthing", "QUEST_FINISHED")
-	self:RegisterEvent("QUEST_TURNED_IN", "doeventthing", "QUEST_TURNED_IN")
+	self:InvalidateCompletionCache(COMPLETION_CACHE_ALL_CHARACTERS)
+	self:invalidateAceTree()
 end
 
-function GetErDone:doeventthing(event)
-	print(event)
-end
 
 function GetErDone:OnUpdate()
 	
@@ -654,7 +685,9 @@ function GetErDone:getTreeDisplay(id, type, showAll)
 
 	-- displayChildren check
 	if item.ownedBy ~= "" then
-		return  self.db.global.compounds[item.ownedBy].displayChildren
+		if self.db.global.compounds[item.ownedBy].displayChildren ~= nil then -- default to true
+			return self.db.global.compounds[item.ownedBy].displayChildren
+		end
 	end
 
 	return true
@@ -679,7 +712,7 @@ function GetErDone:getAceTreeCharacter(showAll, character)
 	else
 		self:getAceTreeCharacterPrivate(showAll, character)
 	end
-	
+	self.db.global.tree = aceTreeCharacter
 	return aceTreeCharacter
 end
 
@@ -728,37 +761,43 @@ end
 
 function GetErDone:getTreeDisplayCharacter(id, type, showAll, character)
 	if showAll then return true end
-
+	print(character)
 	local item
 	if type == nil then 
 		item = self.db.global.compounds[id]
 	else
 		item = self.db.global.trackables[id][type]
 	end
-
+	print("1")
 	-- active check
 	if not item.active then
 		return false
 	end
 
+	print("2")
 	-- completion check
 	if self:IsComplete(id, type, character) then
 		return false
 	end
 
+	print("3")
 	-- displayChildren check
 	if item.ownedBy ~= "" then
-		return self.db.global.compounds[item.ownedBy].displayChildren
+		if self.db.global.compounds[item.ownedBy].displayChildren ~= nil then -- default to true
+			return self.db.global.compounds[item.ownedBy].displayChildren
+		end
 	end
+	print("4")
 
 	return true
 end
 
 function GetErDone:createTrackableTextForAceTreeCharacter(id, type, character)
 	local trackable = self.db.global.trackables[id][type]
-	print(id)
-	print(type)
-	print(character)
+	local name = self.db.global.characters[character].name
+	if self:isDuplicateName(name) then
+		name = name .. " (" .. self.db.global.characters[character].server .. ")"
+	end
 	local completion = trackable.characters[character] .. "/" .. trackable.completionQuantity
 	return self:padTrackableName(trackable.name, completion)
 end
@@ -823,7 +862,7 @@ function GetErDone:IsComplete(id, type, character)
 end
 
 function GetErDone:IsCompleteOnAllCharacters(id, type)
-	for k, character in pairs(self.db.global.characters) do
+	for character, v in pairs(self.db.global.characters) do
 		if type == nil then
 			if not self:IsCompoundComplete(id, character) then
 				return false
@@ -845,30 +884,39 @@ function GetErDone:IsCompoundComplete(compound_id, character)
 		return self:GetCompletionCache(compound_id, character)
 	end
 
+	local completionPoint = compound.childCompletionQuantity
+	if completionPoint == 0 then
+		completionPoint = #(compound.comprisedOf)
+	end
+	print("n = " .. completionPoint)
 	local completedCount = 0
 	for k, child_id in pairs(compound.comprisedOf) do
 		if self:isCompoundId(child_id) then
+			print(child_id)
 			if self:IsCompoundComplete(child_id, character) then
 				completedCount = completedCount + 1
 			end
 		else
+			print(child_id.id .. ":" .. child_id.type)
 			if self:IsTrackableComplete(child_id.id, child_id.type, character) then
 				completedCount = completedCount + 1
 			end
 		end
 
-		if completedCount >= compound.childCompletionQuantity then
+		if completedCount >= completionPoint then
 			self:AddToCompletionCache(compound_id, character, true)
 			return true
 		end
 	end
 
+	-- incomplete
 	self:AddToCompletionCache(compound_id, character, false)
 	return false
 end
 
 function GetErDone:IsTrackableComplete(id, type, character)
 	local trackable = self.db.global.trackables[id][type]
+	if trackable.active == nil then error("IsTrackableComplete: null active") end
 	if not trackable.active then return true end -- note changed this from false
 	if trackable.characters[character] == nil then return true end -- this too
 
@@ -1002,23 +1050,59 @@ function GetErDone:AddDays(resetDate, currentDate, days)
   return resetDate
 end
 
-function GetErDone:OnDisable()
-	self.db.global.options.optCompound = ""
+
+--------------------------------------------------------------------
+--------------------------- DELETION -------------------------------
+--------------------------------------------------------------------
+
+function GetErDone:delete(id, type)
+	if type == nil then
+		self:deleteCompound(id)
+	else
+		self:deleteTrackable(id, type)
+	end
 end
 
----Event Handlers---
+function GetErDone:deleteCompound(compound_id)
+	local compound = self.db.global.compounds[compound_id]
+	if compound == nil then return end
+	local children = compound.comprisedOf
+	if children ~= "" then
+		for k, child_id in pairs(children) do
+			if self:isCompoundId(child_id) then
+				self:deleteCompound(child_id)
+			else
+				self:deleteTrackable(child_id.id, child_id.type)
+			end
+		end
+	end
 
----OnLogin defaults the "character" dropdown to the character you're currently logged in as.
-function GetErDone:OnLogin()
-	name, server = UnitFullName("player")
-	self.db.global.options.character = name..server
-	self.db.global.character = name..server
+	self.db.global.compounds[compound_id] = nil
 end
 
+function GetErDone:deleteTrackable(id, type)
+	self.db.global.trackables[id][type] = nil
+	if self:IsNullOrEmpty(self.db.global.trackables[id]) then
+		self.db.global.trackables[id] = nil
+	end
+end
 
 --------------------------------------------------------------------
 ----------------------- UTIL METHODS -------------------------------
 --------------------------------------------------------------------
+
+function GetErDone:isDuplicateName(name)
+	local matchesFound = 0
+	for dbname, nameServerPair in pairs(self.db.global.characters) do
+		if nameServerPair.name == name then
+			-- we allow one match, since we'll obviously find the character we're searching for
+			if matchesFound == 1 then 
+				return true
+			end
+			matchesFound = matchesFound + 1
+		end
+	end
+end
 
 -- creates a set where the keys are unique
 -- the values can be whatever you like, they won't get checked
@@ -1100,21 +1184,6 @@ end
 ------------------ UI FUNCTIONS THAT SHOULDNT BE ---------------
 ----------------------------------------------------------------
 
-function GetErDone:prepareCharacters(characters)
-	local chars = {}
-	if characters[CHARACTERS_ALL] ~= nil then
-		for name, v in pairs(self.db.global.characters) do
-			chars[name] = 0
-		end
-	else
-		for k, name in pairs(characters) do
-			chars[name] = 0
-		end
-	end
-	return chars
-end
-
-
 function GetErDone:getCompoundParent(compoundID)
 	return self.db.global.compounds[compoundID].ownedBy
 end
@@ -1185,7 +1254,7 @@ end
 function GetErDone:getCharacters()
 	local t = {["All"] = CHARACTERS_ALL}
 	for k, v in pairs(GetErDone:GetOption("characters")) do
-		t[k] = v
+		t[k] = k
 	end
 	return t
 end
@@ -1194,8 +1263,35 @@ function GetErDone:getIndent(n)
 	return string.rep(NESTING_INDENT, n)
 end
 
+-----------------------------------------------------
+------------------ IGNORE NAMES ---------------------
+-----------------------------------------------------
 
+function GetErDone:addIgnoredName(name)
+	self.db.global.options.ignoredNames[name] = true
+end
 
+function GetErDone:removeIgnoredName(name)
+	self.db.global.options.ignoredNames[name] = nil
+end
+
+function GetErDone:isNameIgnored(name)
+	local dbname = self.db.global.options.ignoredNames[name]
+	if dbname ~= nil and dbname == true then
+		return false
+	end
+	return true
+end
+
+function GetErDone:getAvailableNames()
+	local names = {}
+	for name, v in pairs(self.db.global.characters) do
+		if not self:isNameIgnored(name) then
+			table.insert(names, name)
+		end
+	end
+	return names
+end
 
 ---------------------------------UI CODE-------------------------------------------
 
@@ -1208,7 +1304,7 @@ function GetErDone:testui()
 	f:SetCallback("OnClose",function(widget) AceGUI:Release(widget) end)
 	f:SetTitle("Options")
 	f:SetLayout("Flow")
-	f:SetHeight(600)
+	f:SetHeight(800)
 
 	----Scroll Groups Init---
 	local groupsContainer = AceGUI:Create("InlineGroup")
@@ -1297,20 +1393,21 @@ function GetErDone:testui()
 	addTrackableButton:SetText("Add ID")
 	addTrackableButton:SetCallback("OnClick", 
 		function(widget, event) self:AddTrackable(
-		self.db.global.options.trackableID, 
-		self.db.global.options.typechoice, 
-		self:LoadTrackableName(self.db.global.options.trackableID, self.db.global.options.typechoice),
-		self.db.global.options.optCompound,
-		self.db.global.options.frequency,
-		self:prepareCharacters( { self.db.global.options.character } ), -- TODO multiple name selection
-		self.db.global.options.quantity,
-		trackablesScroll) 
+				self.db.global.options.trackableID, 
+				self.db.global.options.typechoice, 
+				self.db.global.options.trackablename,
+				self.db.global.options.optCompound,
+				self.db.global.options.frequency,
+				self.db.global.options.character, -- TODO multiple name selection
+				self.db.global.options.quantity
+			) 
 			widgetManager["addTrackableButton"]:SetDisabled(true)
 		end)
 
 	trackableSpacer:SetText("")
 
 	trackableName:SetText("")
+	trackableName:SetCallback("OnValueChanged", function(widget, event, text) self:submitTrackableNameEdit(widget, event, text) end)
 
 	trackableID:SetCallback("OnEnterPressed", function(widget, event, text) 
 		self:submitIDEdit(widget, event, text) 
@@ -1355,7 +1452,7 @@ function GetErDone:testui()
 	newTrackableGroup:AddChild(trackableType)
 	newTrackableGroup:AddChild(trackableID)
 	newTrackableGroup:AddChild(trackableName)
-	newTrackableGroup:AddChild(trackableSpacer)
+	--newTrackableGroup:AddChild(trackableSpacer)
 	newTrackableGroup:AddChild(trackableFrequency)
 	newTrackableGroup:AddChild(trackableCharacter)
 	newTrackableGroup:AddChild(trackableQuantity)
@@ -1433,7 +1530,6 @@ function GetErDone:clickGroupLabel(widget, compoundID, isUp)
 
 	self.db.global.options.optCompound = compoundID
 	self:refreshCompoundList()
-	self.db.global.options.optCompound  = compoundID 
 
 	widgetManager["compoundSelectionLabel"]:SetText("Current Group: " .. self.db.global.compounds[self.db.global.options.optCompound].name)
 	self:refreshTrackableList()
@@ -1500,6 +1596,12 @@ function GetErDone:submitIDEdit(widget, event, text)
 	self:populateIDEdit(widget)
 end
 
+function GetErDone:submitTrackableNameEdit(widget, event, text)
+	if string.match(text, '%w') then
+		self.db.global.options.trackablename = text
+	end
+	self:populateIDEdit(widget)
+end
 
 function GetErDone:populateIDEdit(widget)
 	widget:SetText(self.db.global.options.trackableID)
@@ -1530,9 +1632,10 @@ function GetErDone:populateCompoundEdit(widget)
 end
 
 -- if the name is found in the database, then set the trackable box to that and disable editing
-function GetErDone:getTrackableNameForWidget(widget)
+function GetErDone:setTrackableNameForWidget(widget)
 	local name = self:LoadTrackableName(self.db.global.options.trackableID, self.db.global.options.typechoice)
 	if name ~= COULD_NOT_FIND_TRACKABLE_IN_DB then
+		self.db.global.options.trackablename = name
 		widget:SetText(name)
 		widget:SetDisabled(true)
 	end
@@ -1597,6 +1700,7 @@ function GetErDone:test_reset()
 		self:debug("reset test passed!")
 	end
 
+	self.db.global.trackables["resettest"] = nil
 end
 
 function GetErDone:test_increment()
@@ -1626,6 +1730,7 @@ function GetErDone:test_increment()
 		self:debug("increment test passed!")
 	end
 
+	self.db.global.trackables["incrementtest"] = nil
 end
 
 
@@ -1805,5 +1910,15 @@ function GetErDone:test_completion()
 	for k, v in pairs(failures) do
 		self:debug(v)
 	end
+
+
+	self.db.global.trackables["trackable_incomplete"] = nil
+	self.db.global.trackables["trackable_complete"] = nil
+	self.db.global.trackables["trackable_inactive"] = nil
+	self.db.global.compounds["compound_one_complete"] = nil
+	self.db.global.compounds["compound_half_complete"] = nil
+	self.db.global.compounds["compound_quantity_two"] = nil
+	self.db.global.compounds["compound_compound"] = nil
+	self.db.global.compounds["compound_mixed"] = nil
 
 end
