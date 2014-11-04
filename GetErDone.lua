@@ -344,16 +344,13 @@ end
 
 
 function GetErDone:prepareCharacters(characters)
-	print(characters)
 	local chars = {}
 	if type(characters) ~= "table" then return { [characters] = 0 } end
 	if characters == CHARACTERS_ALL then
-		print("all")
 		for name, v in pairs(self.db.global.characters) do
 			chars[name] = 0
 		end
 	else
-		print("1")
 		for name, v in pairs(characters) do
 			chars[name] = 0
 		end
@@ -761,33 +758,28 @@ end
 
 function GetErDone:getTreeDisplayCharacter(id, type, showAll, character)
 	if showAll then return true end
-	print(character)
 	local item
 	if type == nil then 
 		item = self.db.global.compounds[id]
 	else
 		item = self.db.global.trackables[id][type]
 	end
-	print("1")
 	-- active check
 	if not item.active then
 		return false
 	end
 
-	print("2")
 	-- completion check
 	if self:IsComplete(id, type, character) then
 		return false
 	end
 
-	print("3")
 	-- displayChildren check
 	if item.ownedBy ~= "" then
 		if self.db.global.compounds[item.ownedBy].displayChildren ~= nil then -- default to true
 			return self.db.global.compounds[item.ownedBy].displayChildren
 		end
 	end
-	print("4")
 
 	return true
 end
@@ -888,16 +880,13 @@ function GetErDone:IsCompoundComplete(compound_id, character)
 	if completionPoint == 0 then
 		completionPoint = #(compound.comprisedOf)
 	end
-	print("n = " .. completionPoint)
 	local completedCount = 0
 	for k, child_id in pairs(compound.comprisedOf) do
 		if self:isCompoundId(child_id) then
-			print(child_id)
 			if self:IsCompoundComplete(child_id, character) then
 				completedCount = completedCount + 1
 			end
 		else
-			print(child_id.id .. ":" .. child_id.type)
 			if self:IsTrackableComplete(child_id.id, child_id.type, character) then
 				completedCount = completedCount + 1
 			end
