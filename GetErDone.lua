@@ -1778,17 +1778,19 @@ function GetErDone:generateIngameCompoundTree(compoundid)
 
 			-- create the invisible button
 			local button = CreateFrame("Button", child_compound_id, frameManager.f)
-			button:SetHeight(20)
-        	button:SetNormalTexture("Interface/Buttons/UI-Panel-Button-Up")
-        	button:SetHighlightTexture("Interface/Buttons/UI-Panel-Button-Highlight")
-        	button:SetPushedTexture("Interface/Buttons/UI-Panel-Button-Down")
-			button:SetWidth(tempString:GetStringWidth())
-			button:SetPoint(tempString:GetPoint())
+			button:SetHeight(30)
+        	button:SetNormalTexture("Interface\\Addons\\GetErDone\\textures\\clear.tga", "BLEND")
+        	button:SetHighlightTexture("Interface\\Addons\\GetErDone\\textures\\highlight.tga", "BLEND")
+        	button:SetPushedTexture("Interface\\Addons\\GetErDone\\textures\\highlight.tga", "BLEND")
+			button:SetWidth(tempString:GetStringWidth() * 2)
+			local point, relativeTo, relativePoint, xOfs, yOfs = tempString:GetPoint()
+			button:SetPoint("TOPLEFT", relativeTo, relativePoint, 0 - (tempString:GetWidth() / 2) - 15, 4) -- shuffle button to the left so it's on top of the text
 			button:SetBackdropColor(0, 0, 0, 0) -- seethrough
 			button:SetBackdropBorderColor(0, 0, 0, 0) -- seethrough
 			button:RegisterForClicks("AnyUp")
-			button:SetFrameStrata("LOW")
+			button:SetFrameStrata("MEDIUM")
 			button:SetScript("OnClick", function() GetErDone:uiCompoundToggle(child_compound_id) end)
+			button:SetAlpha(0.5)
 			button:Enable()
 
 			frameManager["previousString"] = tempString
