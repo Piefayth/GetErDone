@@ -291,7 +291,8 @@ TYPE_MONSTER = "monster"
 TYPE_QUEST = "quest"
 TYPE_ITEM = "item"
 TYPE_SPELL = "spell"
-TYPE_OBJECT = "object"
+TYPE_OBJECT = "GameObject"
+TYPE_LIST = {[TYPE_MONSTER] = "Monster", [TYPE_ITEM] = "Item", [TYPE_QUEST] = "Quest", [TYPE_SPELL] = "Spell", [TYPE_OBJECT] = "Object"}
 CUSTOM_PREFIX = "default_"
 COMPOUND_LEVEL_BOTTOM = 0
 COMPOUND_LEVEL_MID = 1
@@ -1438,7 +1439,7 @@ function GetErDone:testui()
 	end)
 	trackableID:SetLabel("ID")
 
-	trackableType:SetList({[TYPE_MONSTER] = "Monster", [TYPE_ITEM] = "Item", [TYPE_QUEST] = "Quest", [TYPE_SPELL] = "Spell", [TYPE_OBJECT] = "Object"})
+	trackableType:SetList(TYPE_LIST)
 	trackableType:SetCallback("OnValueChanged", function(widget, event, key) 
 		self:getTrackableTypeDropdown(widget, event, key) 
 	end)
