@@ -171,6 +171,9 @@ options = {
 						name = "toggle debug",
 						desc = "",
 						func = function() 
+							for i=1, 50000 do
+								GetErDone:updateUI()
+							end
 							print("debug disabled")
 							debugMode = false 
 						end,
@@ -291,6 +294,7 @@ TYPE_MONSTER = "monster"
 TYPE_QUEST = "quest"
 TYPE_ITEM = "item"
 TYPE_SPELL = "spell"
+TYPE_OBJECT = "object"
 CUSTOM_PREFIX = "default_"
 COMPOUND_LEVEL_BOTTOM = 0
 COMPOUND_LEVEL_MID = 1
@@ -371,6 +375,7 @@ function GetErDone:addCompound()
 	self:updateOwner(compound.ownedBy, compound_id, nil)
 
 	self:invalidateAceTree()
+	self:updateUI()
 	return true
 end
 
@@ -411,14 +416,6 @@ function GetErDone:LoadTrackableName(id, type)
 		end
 	end
 	
-	local db = _G[TRACKABLE_DB_PREFIX .. tostring(floor(tonumber(id) / TRACKABLE_DB_SEGMENT_SIZE))]
-	if db ~= nil then
-		if db[id] ~= nil then
-			if db[id][type] ~= nil then
-				return db[id][type]
-			end
-		end
-	end
 	self:debug(type .. " not found in database")
 	return COULD_NOT_FIND_TRACKABLE_IN_DB
 end
@@ -445,7 +442,7 @@ function GetErDone:AddTrackable(id, type, name, owner, frequency, characters, qu
 
     self:refreshTrackableList()
 	self:invalidateAceTree()
-
+	self:updateUI()
 
     --Zero Out Options Fields--
 	self.db.global.options.quantity = ""
@@ -529,11 +526,12 @@ function GetErDone:OnEnable()
 	self:UpdateResets()
 	self:InvalidateCompletionCache(COMPLETION_CACHE_ALL_CHARACTERS)
 	self:invalidateAceTree()
+	self:collapseUIToTopLevel()
+	self:createTestInGameList()
 end
 
 
 function GetErDone:OnUpdate()
-	
 end
 
 function GetErDone:LoadDefaults()
@@ -576,7 +574,8 @@ function GetErDone:handleEventMonster(event)
 			-- create set to deal with duplicate items
 			local mobSet = self:createSet(self:getSpawnUidIdPairs(mobList))
 			for k, v in pairs(mobSet) do
-				self:checkEvent(v, TYPE_MONSTER)
+				local id, type = self:fromMergedId(v)
+				self:checkEvent(id, type)
 			end
 		end
 	end
@@ -613,18 +612,7 @@ function GetErDone:checkEvent(id, type)
 	end
 end
 
--- Takes a list of GUIDs and splits them into { [spawn_uid] = [mob_id] }
--- spawn_uid uniquely identifies the particular mob
-function GetErDone:getSpawnUidIdPairs(moblist)
-	local ret = {}
-	for k, guid in pairs(moblist) do
-		local mob_id, spawn_uid = self:getNpcId(guid)
-		if mob_id ~= 0 and spawn_uid ~= nil then
-			ret[spawn_uid] = mob_id
-		end
-	end 
-	return ret
-end
+
 
 
 -----------------------------------------------------------------
@@ -788,6 +776,11 @@ function GetErDone:getTreeDisplayCharacter(id, type, showAll, character)
 	else
 		item = self.db.global.trackables[id][type]
 	end
+
+	if item == nil then
+		return false
+	end
+
 	-- active check
 	if not item.active then
 		return false
@@ -859,7 +852,7 @@ function GetErDone:CompleteTrackable(id, type, status)
 	end	
 
 	self:invalidateAceTree()
-	self:generateIngameCompoundTree("")
+	self:updateUI()
 end
 
 function GetErDone:IsComplete(id, type, character)
@@ -1097,6 +1090,19 @@ end
 ----------------------- UTIL METHODS -------------------------------
 --------------------------------------------------------------------
 
+-- Takes a list of GUIDs and splits them into { [spawn_uid] = [mob_id] }
+-- spawn_uid uniquely identifies the particular mob
+function GetErDone:getSpawnUidIdPairs(moblist)
+	local ret = {}
+	for k, guid in pairs(moblist) do
+		local type, mob_id, spawn_uid = self:getNpcId(guid)
+		if mob_id ~= 0 and spawn_uid ~= nil then
+			ret[spawn_uid] = self:toMergedId(mob_id, type)
+		end
+	end 
+	return ret
+end
+
 function GetErDone:isDuplicateName(name)
 	local matchesFound = 0
 	for dbname, nameServerPair in pairs(self.db.global.characters) do
@@ -1155,7 +1161,7 @@ function GetErDone:getNpcId(guid)
 	--  [Unit type]-0-[server ID]-[instance ID]-[zone UID]-[ID]-[Spawn UID]
 	if guid then
 		local unit_type, _, server_id, instance_id, zone_uid, mob_id, spawn_uid = strsplit('-', guid)
-		return mob_id, spawn_uid
+		return unit_type, mob_id, spawn_uid
 	end
 	return 0
 end
@@ -1435,7 +1441,7 @@ function GetErDone:testui()
 	end)
 	trackableID:SetLabel("ID")
 
-	trackableType:SetList({["monster"] = "Monster", ["item"] = "Item", ["quest"] = "Quest"})
+	trackableType:SetList({[TYPE_MONSTER] = "Monster", [TYPE_ITEM] = "Item", [TYPE_QUEST] = "Quest", [TYPE_SPELL] = "Spell", [TYPE_OBJECT] = "Object"})
 	trackableType:SetCallback("OnValueChanged", function(widget, event, key) 
 		self:getTrackableTypeDropdown(widget, event, key) 
 	end)
@@ -1696,11 +1702,7 @@ function GetErDone:createIngameListChar()
 end
 
 function GetErDone:redrawUi()
-	if frameManager.f ~= nil then
-		frameManager.f:ClearAllPoints()
-	end
 	local f = CreateFrame("Frame", "GetErDoneTracker", UIParent)
-	f:SetPoint("Center",0,0)
 	f:SetWidth(400)
 	f:SetHeight(1000)
 	f:SetMovable(true)
@@ -1709,7 +1711,12 @@ function GetErDone:redrawUi()
 	f:RegisterForDrag("LeftButton")
 	f:SetClampedToScreen(true) -- don't let it be dragged off the screen
 	f:SetScript("OnDragStart", f.StartMoving)
-	f:SetScript("OnDragStop", f.StopMovingOrSizing)
+	f:SetScript("OnDragStop", function() GetErDone:saveUiPosition() end)
+	if self.db.global.options.uipositionx ~= nil and self.db.global.options.uipositiony ~= nil and self.db.global.options.uipositionpoint ~= nil then
+		f:SetPoint(self.db.global.options.uipositionpoint, self.db.global.options.uipositionx, self.db.global.options.uipositiony)
+	else
+		f:SetPoint("LEFT", 0, 0)
+	end
 
 	topIndicator = CreateFrame("Frame", "GEDTrackerDragIndicator", f)
 	topIndicator:SetWidth(20)
@@ -1731,14 +1738,24 @@ function GetErDone:redrawUi()
 	self:generateIngameCompoundTree("")
 end
 
+function GetErDone:saveUiPosition()
+	local ui = frameManager.f
+	if ui == nil then error("saveUiPosition: null frame") end
+
+	ui:StopMovingOrSizing()
+
+	local point, _, _, x, y = ui:GetPoint()
+	self.db.global.options.uipositionpoint = point
+	self.db.global.options.uipositionx = floor(x + 0.5) -- round
+	self.db.global.options.uipositiony = floor(y + 0.5)
+end
+
 function GetErDone:createTestInGameList()
 	if frameManager["f"] ~= nil then
 		if frameManager["f"]:IsShown() then
 			frameManager["f"]:Hide()
-		else
-			frameManager["f"]:Show()
+			return
 		end
-		return
 	end
 	self:redrawUi()
 end
@@ -1758,11 +1775,27 @@ function GetErDone:generateIngameCompoundTree(compoundid)
 			tempString:SetHeight(20)
 			tempString:SetWidth(300)
 			tempString:SetJustifyH("LEFT")
+
+			-- create the invisible button
+			local button = CreateFrame("Button", child_compound_id, frameManager.f)
+			button:SetHeight(20)
+        	button:SetNormalTexture("Interface/Buttons/UI-Panel-Button-Up")
+        	button:SetHighlightTexture("Interface/Buttons/UI-Panel-Button-Highlight")
+        	button:SetPushedTexture("Interface/Buttons/UI-Panel-Button-Down")
+			button:SetWidth(tempString:GetStringWidth())
+			button:SetPoint(tempString:GetPoint())
+			button:SetBackdropColor(0, 0, 0, 0) -- seethrough
+			button:SetBackdropBorderColor(0, 0, 0, 0) -- seethrough
+			button:RegisterForClicks("AnyUp")
+			button:SetFrameStrata("LOW")
+			button:SetScript("OnClick", function() GetErDone:uiCompoundToggle(child_compound_id) end)
+			button:Enable()
+
 			frameManager["previousString"] = tempString
 			textFrames[child_compound_id] = tempString
 
 			for kk, child_id in pairs(self.db.global.compounds[child_compound_id].comprisedOf) do
-				if not self:isCompoundId(child_id) then
+				if not self:isCompoundId(child_id) and self:uiShowCompound(child_compound_id) then
 					if self:getTreeDisplayCharacter(child_id.id, child_id.type, false, character) then
 						tempString = frameManager["f"]:CreateFontString(child_compound_id, "ARTWORK", "GameFontWhite")
 						tempString:SetText(self:getIndent(self:compoundNumParents(child_compound_id))  .. NESTING_INDENT .. self.db.global.trackables[child_id.id][child_id.type].name or "test")
@@ -1773,30 +1806,51 @@ function GetErDone:generateIngameCompoundTree(compoundid)
 						tempString:SetShadowOffset(1,-1)
 						frameManager["previousString"] = tempString
 						textFrames[self:toMergedId(child_id)] = tempString
-					else -- check if we have the frame cached, and if so, hide it
-						self:hideUIElement(self:toMergedId(child_id))
 					end
 				end
 			end
-			self:generateIngameCompoundTree(child_compound_id)
-		else -- check if we have the frame cached, and if so, hide it
-			self:hideUIElement(child_compound_id)
+			if self:uiShowCompound(child_compound_id) then
+				self:generateIngameCompoundTree(child_compound_id)
+			end
 		end
 	end
 end
 
-function GetErDone:hideUIElement(id)
-	local cachedFrame = textFrames[id]
-	if cachedFrame ~= nil then
-		local _, relativeFrame, _, _, _ = cachedFrame:GetPoint()
-		cachedFrame:SetPoint("BOTTOM", relativeFrame, 0, 0, 0)
-		cachedFrame:SetHeight(0)
-		cachedFrame:SetParent(nil)
-		cachedFrame:Hide()
+function GetErDone:updateUI()
+	if frameManager.f ~= nil then
+		frameManager.f:Hide()
+		frameManager.f = nil
+		self:redrawUi()
 	end
 end
 
-function GetErDone:removeTestInGameList()
+local compoundsNotToShow = {}
+
+function GetErDone:uiShowCompound(compound_id)
+	return compoundsNotToShow[compound_id] == nil
+end
+
+function GetErDone:uiCompoundSetShow(compound_id)
+	compoundsNotToShow[compound_id] = nil
+end
+
+function GetErDone:uiCompoundSetHide(compound_id)
+	compoundsNotToShow[compound_id] = 1
+end
+
+function GetErDone:uiCompoundToggle(compound_id)
+	if self:uiShowCompound(compound_id) then
+		self:uiCompoundSetHide(compound_id)
+	else
+		self:uiCompoundSetShow(compound_id)
+	end
+	self:updateUI()
+end
+
+function GetErDone:collapseUIToTopLevel()
+	for k, compound_id in pairs(self:getCompoundChildren("")) do
+		self:uiCompoundSetHide(compound_id)
+	end
 end
 
 -----------------------------

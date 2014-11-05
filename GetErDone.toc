@@ -6,17 +6,5 @@
 ## SavedVariables: GetErDoneDb
 
 embeds.xml
-GetErDoneDb_1.lua
-GetErDoneDb_2.lua
-GetErDoneDb_3.lua
-GetErDoneDb_4.lua
-GetErDoneDb_5.lua
-GetErDoneDb_6.lua
-GetErDoneDb_7.lua
-GetErDoneDb_8.lua
-GetErDoneDb_9.lua
-GetErDoneDb_10.lua
-GetErDoneDb_11.lua
-GetErDoneDb_12.lua
 GetErDoneDefaults.lua
 GetErDone.lua
