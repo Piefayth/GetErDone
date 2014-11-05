@@ -260,6 +260,27 @@ options = {
 						desc = "",
 						func = function() GetErDone:createIngameListChar() end,
 					},
+					ui = {
+						order = 1000,
+						type = "execute",
+						name = "ui",
+						desc = "",
+						func = function() GetErDone:createTestInGameList() end,
+					},
+					uitest_set = {
+						order = 1001,
+						type = "execute",
+						name = "uitest_set",
+						desc = "",
+						func = function() GetErDone:uitest_set() end,
+					},
+					uitest_test = {
+						order = 1002,
+						type = "execute",
+						name = "uitest_test",
+						desc = "",
+						func = function() GetErDone:uitest_test() end,
+					},
 				},
 			},
 		},
@@ -508,7 +529,6 @@ function GetErDone:OnEnable()
 	self:UpdateResets()
 	self:InvalidateCompletionCache(COMPLETION_CACHE_ALL_CHARACTERS)
 	self:invalidateAceTree()
-	GetErDone:createTestInGameList()
 end
 
 
@@ -551,12 +571,12 @@ function GetErDone:handleEventMonster(event)
 		local numItems = GetNumLootItems()
 		for slotId = 1, numItems, 1 do
 			local mobList = { GetLootSourceInfo(slotId) }
+			local itemId = self:getItemIdFromLink(GetLootSlotLink(slotId))
+			self:checkEvent(itemId, TYPE_ITEM)
 			-- create set to deal with duplicate items
 			local mobSet = self:createSet(self:getSpawnUidIdPairs(mobList))
-			self.db.global.testset = mobSet
 			for k, v in pairs(mobSet) do
 				self:checkEvent(v, TYPE_MONSTER)
-				self:checkEvent(v, TYPE_ITEM)
 			end
 		end
 	end
@@ -815,14 +835,6 @@ function GetErDone:createCompoundTextForAceTree(compound_id)
 	return compound.name
 end
 
-function GetErDone:toMergedId(id, type)
-	return id .. MERGED_DELIMITER .. type
-end
-
-function GetErDone:fromMergedId(merged)
-	return strsplit(MERGED_DELIMITER, merged)
-end
-
 --------------------------------------------------------------------
 -------------------------- TRACKING --------------------------------
 --------------------------------------------------------------------
@@ -847,6 +859,7 @@ function GetErDone:CompleteTrackable(id, type, status)
 	end	
 
 	self:invalidateAceTree()
+	self:generateIngameCompoundTree("")
 end
 
 function GetErDone:IsComplete(id, type, character)
@@ -1148,7 +1161,9 @@ function GetErDone:getNpcId(guid)
 end
 
 function GetErDone:getItemIdFromLink(link)
-	local _, _, Color, Ltype, Id, Enchant, Gem1, Gem2, Gem3, Gem4, Suffix, Unique, LinkLvl, reforging, Name = string.find(link, "|?c?f?f?(%x*)|?H?([^:]*):?(%d+):?(%d*):?(%d*):?(%d*):?(%d*):?(%d*):?(%-?%d*):?(%-?%d*):?(%d*):?(%d*)|?h?%[?([^%[%]]*)%]?|?h?|?r?")
+	if link ~= nil then
+		local _, _, Color, Ltype, Id, Enchant, Gem1, Gem2, Gem3, Gem4, Suffix, Unique, LinkLvl, reforging, Name = string.find(link, "|?c?f?f?(%x*)|?H?([^:]*):?(%d+):?(%d*):?(%d*):?(%d*):?(%d*):?(%d*):?(%-?%d*):?(%-?%d*):?(%d*):?(%d*)|?h?%[?([^%[%]]*)%]?|?h?|?r?")
+	end
 	return Id
 end
 
@@ -1172,6 +1187,17 @@ end
 -- only works on tables
 function GetErDone:IsNullOrEmpty(dict)
 	return dict == nil or next(dict) == nil
+end
+
+function GetErDone:toMergedId(id, type)
+	if type == nil then
+		return id.id .. MERGED_DELIMITER .. id.type
+	end
+	return id .. MERGED_DELIMITER .. type
+end
+
+function GetErDone:fromMergedId(merged)
+	return strsplit(MERGED_DELIMITER, merged)
 end
 
 ----------------------------------------------------------------
@@ -1256,6 +1282,7 @@ end
 function GetErDone:getIndent(n)
 	return string.rep(NESTING_INDENT, n)
 end
+
 
 -----------------------------------------------------
 ------------------ IGNORE NAMES ---------------------
@@ -1668,7 +1695,10 @@ function GetErDone:createIngameListChar()
     widgetManager["mainTreeChar"] = mainTree
 end
 
-function GetErDone:createTestInGameList()
+function GetErDone:redrawUi()
+	if frameManager.f ~= nil then
+		frameManager.f:ClearAllPoints()
+	end
 	local f = CreateFrame("Frame", "GetErDoneTracker", UIParent)
 	f:SetPoint("Center",0,0)
 	f:SetWidth(400)
@@ -1677,6 +1707,7 @@ function GetErDone:createTestInGameList()
 	f:EnableMouse(true)
 	f:SetHitRectInsets(0,0,0,975)
 	f:RegisterForDrag("LeftButton")
+	f:SetClampedToScreen(true) -- don't let it be dragged off the screen
 	f:SetScript("OnDragStart", f.StartMoving)
 	f:SetScript("OnDragStop", f.StopMovingOrSizing)
 
@@ -1700,33 +1731,74 @@ function GetErDone:createTestInGameList()
 	self:generateIngameCompoundTree("")
 end
 
-function GetErDone:generateIngameCompoundTree(compoundid)
-	children = self:getCompoundChildren(compoundid)
-
-	for k,v in pairs(children) do
-		tempString = frameManager["f"]:CreateFontString(v, "ARTWORK", "GameFontNormal")
-		tempString:SetText(self:getIndent(self:compoundNumParents(v)) .. self.db.global.compounds[v].name)
-		tempString:SetPoint("BOTTOM", frameManager["previousString"], 0, -20, 0)
-		tempString:SetHeight(20)
-		tempString:SetWidth(300)
-		tempString:SetJustifyH("LEFT")
-		frameManager["previousString"] = tempString
-		for kk,vv in pairs(self.db.global.compounds[v].comprisedOf) do
-
-			if type(vv) == "table" then print(vv["id"] .. vv["type"])
-				tempString = frameManager["f"]:CreateFontString(v, "ARTWORK", "GameFontWhite")
-				tempString:SetText(self:getIndent(self:compoundNumParents(v))  .. NESTING_INDENT .. self.db.global.trackables[vv["id"]][vv["type"]].name)
-				tempString:SetPoint("BOTTOM", frameManager["previousString"], 0, -15, 0)
-				tempString:SetHeight(15)
-				tempString:SetWidth(300)
-				tempString:SetJustifyH("LEFT")
-				tempString:SetShadowOffset(1,-1)
-				frameManager["previousString"] = tempString
-			end
+function GetErDone:createTestInGameList()
+	if frameManager["f"] ~= nil then
+		if frameManager["f"]:IsShown() then
+			frameManager["f"]:Hide()
+		else
+			frameManager["f"]:Show()
 		end
-		self:generateIngameCompoundTree(v)
+		return
+	end
+	self:redrawUi()
+end
+
+local textFrames = {}
+
+function GetErDone:generateIngameCompoundTree(compoundid)
+	if frameManager.f == nil then return end -- if we're calling before we've loaded the ui for the first time - on login, usually
+	local children = self:getCompoundChildren(compoundid)
+	local character = self.db.global.character -- TODO make this selectable
+
+	for k, child_compound_id in pairs(children) do
+		if self:getTreeDisplayCharacter(child_compound_id, nil, false, character) then
+			local tempString = frameManager["f"]:CreateFontString(child_compound_id, "ARTWORK", "GameFontNormal")
+			tempString:SetText(self:getIndent(self:compoundNumParents(child_compound_id)) .. self.db.global.compounds[child_compound_id].name)
+			tempString:SetPoint("BOTTOM", frameManager["previousString"], 0, -20, 0)
+			tempString:SetHeight(20)
+			tempString:SetWidth(300)
+			tempString:SetJustifyH("LEFT")
+			frameManager["previousString"] = tempString
+			textFrames[child_compound_id] = tempString
+
+			for kk, child_id in pairs(self.db.global.compounds[child_compound_id].comprisedOf) do
+				if not self:isCompoundId(child_id) then
+					if self:getTreeDisplayCharacter(child_id.id, child_id.type, false, character) then
+						tempString = frameManager["f"]:CreateFontString(child_compound_id, "ARTWORK", "GameFontWhite")
+						tempString:SetText(self:getIndent(self:compoundNumParents(child_compound_id))  .. NESTING_INDENT .. self.db.global.trackables[child_id.id][child_id.type].name or "test")
+						tempString:SetPoint("BOTTOM", frameManager["previousString"], 0, -15, 0)
+						tempString:SetHeight(15)
+						tempString:SetWidth(300)
+						tempString:SetJustifyH("LEFT")
+						tempString:SetShadowOffset(1,-1)
+						frameManager["previousString"] = tempString
+						textFrames[self:toMergedId(child_id)] = tempString
+					else -- check if we have the frame cached, and if so, hide it
+						self:hideUIElement(self:toMergedId(child_id))
+					end
+				end
+			end
+			self:generateIngameCompoundTree(child_compound_id)
+		else -- check if we have the frame cached, and if so, hide it
+			self:hideUIElement(child_compound_id)
+		end
 	end
 end
+
+function GetErDone:hideUIElement(id)
+	local cachedFrame = textFrames[id]
+	if cachedFrame ~= nil then
+		local _, relativeFrame, _, _, _ = cachedFrame:GetPoint()
+		cachedFrame:SetPoint("BOTTOM", relativeFrame, 0, 0, 0)
+		cachedFrame:SetHeight(0)
+		cachedFrame:SetParent(nil)
+		cachedFrame:Hide()
+	end
+end
+
+function GetErDone:removeTestInGameList()
+end
+
 -----------------------------
 ------------ TEST CODE ------
 -----------------------------
@@ -1980,4 +2052,31 @@ function GetErDone:test_completion()
 	self.db.global.compounds["compound_compound"] = nil
 	self.db.global.compounds["compound_mixed"] = nil
 
+end
+
+function GetErDone:uitest_set()
+	local t = { 
+		["t"] = { 
+			["name"] = "trackable_inactive",
+			["ownedBy"] = "default_2",
+			["reset"] = { 
+				["hour"] = 4,
+				["day"] = 11,
+				["month"] = 11,
+				["year"] = 2020,
+			},
+			["frequency"] = "weekly",
+			["characters"] = {
+				[self.db.global.character] = 0,
+			},
+			["completionQuantity"] = 1,
+			["active"] = true
+		}
+	}
+	self.db.global.trackables["1"] = t
+	table.insert(self.db.global.compounds["default_2"].comprisedOf, { ["id"] = "1", ["type"] = "t" })
+end
+
+function GetErDone:uitest_test()
+	self:CompleteTrackable("1", "t", COMPLETE_INCREMENT)
 end
