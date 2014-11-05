@@ -9,19 +9,10 @@ local widgetManager = {}
 local frameManager = {}
 
 local events = 	{
-	["monster"] = {
-		{ ["event"] = "LOOT_OPENED", ["callback"] = "handleEventMonster" }, 
-	},
-	["quest"] = {
-		{ ["event"] = "QUEST_TURNED_IN", ["callback"] = "handleEventQuest" },
-		{ ["event"] = "QUEST_COMPLETE", ["callback"] = "handleEventQuest" },
-	},
-	["spell"] = {
-		{ ["event"] = "UNIT_SPELLCAST_SUCCEEDED", ["callback"] = "handleEventSpell" },
-	},
-	["item"] = {
-		--{ ["event"] = "LOOT_OPENED", ["callback"] = "handleEventItem" },
-	},
+	{ ["event"] = "LOOT_OPENED", ["callback"] = "handleEventMonster" }, 
+	{ ["event"] = "QUEST_TURNED_IN", ["callback"] = "handleEventQuest" },
+	{ ["event"] = "QUEST_COMPLETE", ["callback"] = "handleEventQuest" },
+	{ ["event"] = "UNIT_SPELLCAST_SUCCEEDED", ["callback"] = "handleEventSpell" },
 }
 
 options = {
@@ -292,6 +283,7 @@ TYPE_QUEST = "quest"
 TYPE_ITEM = "item"
 TYPE_SPELL = "spell"
 TYPE_OBJECT = "GameObject"
+TYPE_VEHICLE = "Vehicle"
 TYPE_LIST = {[TYPE_MONSTER] = "Monster", [TYPE_ITEM] = "Item", [TYPE_QUEST] = "Quest", [TYPE_SPELL] = "Spell", [TYPE_OBJECT] = "Object"}
 CUSTOM_PREFIX = "default_"
 COMPOUND_LEVEL_BOTTOM = 0
@@ -302,6 +294,7 @@ COMPLETE_ZERO = 1
 RESET_DAILY = "daily"
 RESET_WEEKLY = "weekly"
 RESET_MONTHLY = "monthly"
+UNIT_PLAYER = "player"
 REGION_US = 1
 REGION_KR = 2
 REGION_EU = 3
@@ -553,10 +546,8 @@ end
 -- EVENT HANDLING -- 
 
 function GetErDone:registerHandlers()
-	for type, eventObj in pairs(events) do
-		for k, eventy in pairs(eventObj) do
-			self:RegisterEvent(eventy.event, eventy.callback, eventy.event)
-		end
+	for type, event in pairs(events) do
+		self:RegisterEvent(event.event, event.callback, event.event)
 	end
 end
 
@@ -571,6 +562,9 @@ function GetErDone:handleEventMonster(event)
 			local mobSet = self:createSet(self:getSpawnUidIdPairs(mobList))
 			for k, v in pairs(mobSet) do
 				local id, type = self:fromMergedId(v)
+				if type == TYPE_VEHICLE then
+					type = TYPE_MONSTER
+				end
 				self:checkEvent(id, type)
 			end
 		end
@@ -579,9 +573,12 @@ end
 
 function GetErDone:handleEventSpell(event, ...)
 	if event == "UNIT_SPELLCAST_SUCCEEDED" then
-		local unit, _, _, _, spellId = ...
+		local _, unit, _, _, _, spellId = ...
 		if unit == UNIT_PLAYER then
-			self:checkEvent(spellId, TYPE_SPELL)
+			local d = debugMode
+			debugMode = false
+			self:checkEvent(tostring(spellId), TYPE_SPELL)
+			debugMode = d
 		end
 	end
 end
@@ -607,8 +604,6 @@ function GetErDone:checkEvent(id, type)
 		self:CompleteTrackable(id, type, COMPLETE_INCREMENT)
 	end
 end
-
-
 
 
 -----------------------------------------------------------------
@@ -1432,7 +1427,7 @@ function GetErDone:testui()
 	trackableSpacer:SetText("")
 
 	trackableName:SetText("")
-	trackableName:SetCallback("OnValueChanged", function(widget, event, text) self:submitTrackableNameEdit(widget, event, text) end)
+	trackableName:SetCallback("OnEnterPressed", function(widget, event, text) self:submitTrackableNameEdit(widget, event, text) end)
 
 	trackableID:SetCallback("OnEnterPressed", function(widget, event, text) 
 		self:submitIDEdit(widget, event, text) 
@@ -1622,7 +1617,9 @@ end
 
 function GetErDone:submitTrackableNameEdit(widget, event, text)
 	self.db.global.options.trackablename = text
-	widget:SetText(self.db.global.options.trackableID)
+	print(text)
+	print(event)
+	widget:SetText(text)
 	GetErDone:buttonCheck("trackable")
 end
 
@@ -1651,14 +1648,6 @@ end
 function GetErDone:populateCompoundEdit(widget)
 	widget:SetText(self.db.global.options.newCompoundName)
 	GetErDone:buttonCheck("compound")
-end
-
--- if the name is found in the database, then set the trackable box to that and disable editing
-function GetErDone:setTrackableNameForWidget(widget)
-	self.db.global.options.trackablename = name
-
-	widget:SetText(self.db.global.options.trackableID)
-	GetErDone:buttonCheck("trackable")
 end
 
 function GetErDone:createIngameList()
