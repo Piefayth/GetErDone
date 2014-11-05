@@ -287,7 +287,7 @@ options = {
 	}
 
 
-TYPE_MONSTER = "monster"
+TYPE_MONSTER = "Creature"
 TYPE_QUEST = "quest"
 TYPE_ITEM = "item"
 TYPE_SPELL = "spell"
@@ -309,10 +309,8 @@ REGION_TW = 4
 REGION_CN = 5
 COMPLETION_CACHE_ALL_CHARACTERS = 1
 TRACKABLE_DB_PREFIX = "trackable_"
-TRACKABLE_DB_SEGMENT_SIZE = 10000
 CHARACTERS_ALL = "all"
 NESTING_INDENT = "    "
-COULD_NOT_FIND_TRACKABLE_IN_DB = ""
 MERGED_DELIMITER = ":"
 TREE_CHARACTER_STRING_LENGTH = 80
 debugMode = true
@@ -836,6 +834,8 @@ function GetErDone:CompleteTrackable(id, type, status)
 		error("CompleteTrackable: null trackable")
 	end
 	local character = self.db.global.character
+
+	self:debug("Completing trackable " .. id .. " with status: " .. status)
 
 	if status == COMPLETE_INCREMENT then
 		if trackable.characters[character] < trackable.completionQuantity then
@@ -1621,10 +1621,7 @@ function GetErDone:submitIDEdit(widget, event, text)
 end
 
 function GetErDone:submitTrackableNameEdit(widget, event, text)
-	if string.match(text, '%w') then
-		self.db.global.options.trackablename = text
-	end
-
+	self.db.global.options.trackablename = text
 	widget:SetText(self.db.global.options.trackableID)
 	GetErDone:buttonCheck("trackable")
 end
