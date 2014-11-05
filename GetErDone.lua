@@ -1700,17 +1700,9 @@ function GetErDone:redrawUi()
 		f:SetPoint("LEFT", 0, 0)
 	end
 
-	topIndicator = CreateFrame("Frame", "GEDTrackerDragIndicator", f)
-	topIndicator:SetWidth(20)
-	topIndicator:SetHeight(20)
-	topIndicator:SetPoint("TOPRIGHT", 0, 0)
-	topIndicator:SetBackdrop({
-		bgFile = "Interface\\DialogFrame\\UI-DialogBox-Gold-Background",
-		})
-
 	titlefontstring = f:CreateFontString("TestString", "ARTWORK","GameFontNormal") --GameFontWhite
 	titlefontstring:SetText("Get Er Done")
-	titlefontstring:SetPoint("TOPLEFT", 0, -10)
+	titlefontstring:SetPoint("TOPLEFT", 0, 35)
 	titlefontstring:SetHeight(100)
 	titlefontstring:SetWidth(200)
 
