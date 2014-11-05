@@ -1592,7 +1592,6 @@ end
 
 function GetErDone:setTrackableTypeDropdown(widget)
 	widget:SetValue(self.db.global.options.typechoice)
-	self:setTrackableNameForWidget(widgetManager.trackableName)
 	GetErDone:buttonCheck("trackable")
 end
 
@@ -1627,12 +1626,13 @@ function GetErDone:submitTrackableNameEdit(widget, event, text)
 	if string.match(text, '%w') then
 		self.db.global.options.trackablename = text
 	end
-	self:populateIDEdit(widget)
+	
+	widget:SetText(self.db.global.options.trackableID)
+	GetErDone:buttonCheck("trackable")
 end
 
 function GetErDone:populateIDEdit(widget)
 	widget:SetText(self.db.global.options.trackableID)
-	self:setTrackableNameForWidget(widgetManager.trackableName)
 	GetErDone:buttonCheck("trackable")
 end
 
@@ -1660,12 +1660,10 @@ end
 
 -- if the name is found in the database, then set the trackable box to that and disable editing
 function GetErDone:setTrackableNameForWidget(widget)
-	local name = self:LoadTrackableName(self.db.global.options.trackableID, self.db.global.options.typechoice)
-	if name ~= COULD_NOT_FIND_TRACKABLE_IN_DB then
-		self.db.global.options.trackablename = name
-		widget:SetText(name)
-		widget:SetDisabled(true)
-	end
+	self.db.global.options.trackablename = name
+
+	widget:SetText(self.db.global.options.trackableID)
+	GetErDone:buttonCheck("trackable")
 end
 
 function GetErDone:createIngameList()
