@@ -171,9 +171,6 @@ options = {
 						name = "toggle debug",
 						desc = "",
 						func = function() 
-							for i=1, 50000 do
-								GetErDone:updateUI()
-							end
 							print("debug disabled")
 							debugMode = false 
 						end,
@@ -1626,7 +1623,7 @@ function GetErDone:submitTrackableNameEdit(widget, event, text)
 	if string.match(text, '%w') then
 		self.db.global.options.trackablename = text
 	end
-	
+
 	widget:SetText(self.db.global.options.trackableID)
 	GetErDone:buttonCheck("trackable")
 end
