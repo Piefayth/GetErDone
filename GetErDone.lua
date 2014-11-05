@@ -6,6 +6,7 @@ local AceDB = LibStub("AceDB-3.0")
 local AceDBOptions = LibStub("AceDBOptions-3.0")
 local AceGUI = LibStub("AceGUI-3.0")
 local widgetManager = {}
+local frameManager = {}
 
 local events = 	{
 	["monster"] = {
@@ -497,6 +498,7 @@ function GetErDone:OnEnable()
 	self:UpdateResets()
 	self:InvalidateCompletionCache(COMPLETION_CACHE_ALL_CHARACTERS)
 	self:invalidateAceTree()
+	GetErDone:createTestInGameList()
 end
 
 
@@ -1635,11 +1637,14 @@ function GetErDone:createIngameList()
     f:SetCallback("OnClose",function(widget) AceGUI:Release(widget) end)
     f:SetLayout("Fill")
     f:SetHeight(800)
-    f.frame:SetBackdropColor(0,0,0,0)
-    f.frame:SetBackdropBorderColor(0,0,0,0)
     
+
     local mainTree = AceGUI:Create("TreeGroup")
     mainTree:SetTree(self:getAceTree(false))
+
+    local gayTree = AceGUI:Create("Button")
+   
+    mainTree:AddChild(gayTree)
 
     f:AddChild(mainTree)
 
@@ -1658,6 +1663,66 @@ function GetErDone:createIngameListChar()
     f:AddChild(mainTree)
     
     widgetManager["mainTreeChar"] = mainTree
+end
+
+function GetErDone:createTestInGameList()
+	local f = CreateFrame("Frame", "GetErDoneTracker", UIParent)
+	f:SetPoint("Center",0,0)
+	f:SetWidth(400)
+	f:SetHeight(1000)
+	f:SetMovable(true)
+	f:EnableMouse(true)
+	f:SetHitRectInsets(0,0,0,975)
+	f:RegisterForDrag("LeftButton")
+	f:SetScript("OnDragStart", f.StartMoving)
+	f:SetScript("OnDragStop", f.StopMovingOrSizing)
+
+	topIndicator = CreateFrame("Frame", "GEDTrackerDragIndicator", f)
+	topIndicator:SetWidth(20)
+	topIndicator:SetHeight(20)
+	topIndicator:SetPoint("TOPRIGHT", 0, 0)
+	topIndicator:SetBackdrop({
+		bgFile = "Interface\\DialogFrame\\UI-DialogBox-Gold-Background",
+		})
+
+	titlefontstring = f:CreateFontString("TestString", "ARTWORK","GameFontNormal") --GameFontWhite
+	titlefontstring:SetText("Get Er Done")
+	titlefontstring:SetPoint("TOPLEFT", 0, -10)
+	titlefontstring:SetHeight(100)
+	titlefontstring:SetWidth(200)
+
+	frameManager["f"] = f
+	frameManager["previousString"] = titlefontstring
+
+	self:generateIngameCompoundTree("")
+end
+
+function GetErDone:generateIngameCompoundTree(compoundid)
+	children = self:getCompoundChildren(compoundid)
+
+	for k,v in pairs(children) do
+		tempString = frameManager["f"]:CreateFontString(v, "ARTWORK", "GameFontNormal")
+		tempString:SetText(self:getIndent(self:compoundNumParents(v)) .. self.db.global.compounds[v].name)
+		tempString:SetPoint("BOTTOM", frameManager["previousString"], 0, -20, 0)
+		tempString:SetHeight(20)
+		tempString:SetWidth(300)
+		tempString:SetJustifyH("LEFT")
+		frameManager["previousString"] = tempString
+		for kk,vv in pairs(self.db.global.compounds[v].comprisedOf) do
+
+			if type(vv) == "table" then print(vv["id"] .. vv["type"])
+				tempString = frameManager["f"]:CreateFontString(v, "ARTWORK", "GameFontWhite")
+				tempString:SetText(self:getIndent(self:compoundNumParents(v))  .. NESTING_INDENT .. self.db.global.trackables[vv["id"]][vv["type"]].name)
+				tempString:SetPoint("BOTTOM", frameManager["previousString"], 0, -15, 0)
+				tempString:SetHeight(15)
+				tempString:SetWidth(300)
+				tempString:SetJustifyH("LEFT")
+				tempString:SetShadowOffset(1,-1)
+				frameManager["previousString"] = tempString
+			end
+		end
+		self:generateIngameCompoundTree(v)
+	end
 end
 -----------------------------
 ------------ TEST CODE ------
