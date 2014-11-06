@@ -426,8 +426,7 @@ function GetErDone:AddTrackable(id, type, name, owner, frequency, characters, qu
 	if id == 0 or id == "" then error("AddTrackable: null or empty id") end
 
 	self:ensureTrackable(id)
-	if self.db.global.trackables[id][type] == nil then
-		self.db.global.trackables[id][type] = {
+	self.db.global.trackables[id][type] = {
 			["active"] = true,
 			["name"] = name,
 			["ownedBy"] = owner,
@@ -435,10 +434,8 @@ function GetErDone:AddTrackable(id, type, name, owner, frequency, characters, qu
 			["reset"] = self:NextReset(frequency, self.db.global.region),
 			["characters"] = self:prepareCharacters(characters),
 			["completionQuantity"] = tonumber(quantity)
-    	}
-    else
-    	self.db.global.trackables[id][type].ownedBy = owner -- TODO let us update more than this
-    end
+    }
+
 
     self:updateOwner(owner, id, type)
 
@@ -2028,8 +2025,6 @@ function GetErDone:createTestInGameList()
 	self:redrawUi()
 end
 
-local textFrames = {}
-
 function GetErDone:generateIngameCompoundTree(compoundid)
 	if frameManager.f == nil then return end -- if we're calling before we've loaded the ui for the first time - on login, usually
 	local children = self:getCompoundChildren(compoundid)
@@ -2062,7 +2057,6 @@ function GetErDone:generateIngameCompoundTree(compoundid)
 			button:Enable()
 
 			frameManager["previousString"] = tempString
-			textFrames[child_compound_id] = tempString
 
 			for kk, child_id in pairs(self.db.global.compounds[child_compound_id].comprisedOf) do
 				if not self:isCompoundId(child_id) and self:uiShowCompound(child_compound_id) then
@@ -2075,7 +2069,6 @@ function GetErDone:generateIngameCompoundTree(compoundid)
 						tempString:SetJustifyH("LEFT")
 						tempString:SetShadowOffset(1,-1)
 						frameManager["previousString"] = tempString
-						textFrames[self:toMergedId(child_id)] = tempString
 					end
 				end
 			end
