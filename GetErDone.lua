@@ -6,7 +6,7 @@ local AceDB = LibStub("AceDB-3.0")
 local AceDBOptions = LibStub("AceDBOptions-3.0")
 local AceGUI = LibStub("AceGUI-3.0")
 local widgetManager = {}
-local frameManager = {}
+frameManager = {} -- TODO reset to local
 
 local events = 	{
 	{ ["event"] = "LOOT_OPENED", ["callback"] = "handleEventMonster" }, 
@@ -147,13 +147,13 @@ options = {
 							return GetErDone:GetOption("newCompoundName")
 						end
 					},
-					submitGroup = {
+					resetuipos = {
 						order = 11,
 						type = "execute",
-						name = "Add Group",
+						name = "reset ui pos",
 						desc = "",
 						func = function(k,v)
-							--CALL FUNCTION TO CREATE NEW COMPOUND HERE--
+							frameManager.f:SetPoint("CENTER", 0, 200)
 						end
 					},
 					debug = {
@@ -306,6 +306,10 @@ CHARACTERS_ALL = "all"
 NESTING_INDENT = "    "
 MERGED_DELIMITER = ":"
 TREE_CHARACTER_STRING_LENGTH = 80
+EVENT_LEFT_BUTTON = "LeftButton"
+EVENT_RIGHT_BUTTON = "RightButton"
+CHARACTER_BUTTON_LEFT = 1
+CHARACTER_BUTTON_RIGHT = 2
 debugMode = true
 
 
@@ -363,6 +367,7 @@ function GetErDone:addCompound()
 	self.db.global.compounds[compound_id] = compound
 	self:updateOwner(compound.ownedBy, compound_id, nil)
 	self:invalidateAceTree()
+	self:InvalidateCompletionCache(COMPLETION_CACHE_ALL_CHARACTERS)
 	self:updateUI()
 	return true
 end
@@ -439,6 +444,7 @@ function GetErDone:AddTrackable(id, type, name, owner, frequency, characters, qu
 
     --self:refreshTrackableList()
 	self:invalidateAceTree()
+	self:InvalidateCompletionCache(COMPLETION_CACHE_ALL_CHARACTERS)
 	self:updateUI()
 
     --Zero Out Options Fields--
@@ -461,7 +467,7 @@ function GetErDone:updateOwner(ownerId, childId, childType)
 		end
 	else -- trackable
 		local idtype = { ["id"] = childId, ["type"] = childType }
-		if not self:contains(owner.comprisedOf, idtype) then
+		if not self:containsTrackable(owner.comprisedOf, idtype) then
 			table.insert(owner.comprisedOf, idtype)
 		end
 	end
@@ -498,6 +504,11 @@ function GetErDone:OnInitialize()
 end
 
 function GetErDone:OnEnable()
+	name, server = UnitFullName("player")
+	if self.db.global.characters[name .. server] == nil then 
+		self.db.global.characters[name .. server] = {["name"] = name, ["server"] = server}
+	end
+	self.db.global.character = name .. server
 	---First Time Setup l---
 	if self.db.global.trackables == nil then self.db.global.trackables = {} end
 	if self.db.global.characters == nil then self.db.global.characters = {} end
@@ -511,23 +522,20 @@ function GetErDone:OnEnable()
 	if self.db.global.options.newCompoundName == nil then self.db.global.options.newCompoundName = "" end
 	if self.db.global.options.ignoredNames == nil then self.db.global.options.ignoredNames = {} end
 	if self.db.global.options.compoundchildren == nil then self.db.global.options.compoundchildren = true end
+	if self.db.global.options.uichararacterlistcurrent == nil then self.db.global.options.uichararacterlistcurrent = self.db.global.characters[self.db.global.character] end
 	if self.db.global.region == nil then self.db.global.region = GetCurrentRegion() end
 	if self.db.global.completionCache == nil then self.db.global.completionCache = {} end
+	if self.db.global.hiddenCompounds == nil then self.db.global.hiddenCompounds = {} end
 
+	
 
-
-	name, server = UnitFullName("player")
-	if self.db.global.characters[name .. server] == nil then 
-		self.db.global.characters[name .. server] = {["name"] = name, ["server"] = server}
-	end
-	self.db.global.character = name .. server
-
+	self:generateUiCharacterList()
 	self:registerHandlers()
 	--self:LoadDefaults()
 	self:UpdateResets()
 	self:InvalidateCompletionCache(COMPLETION_CACHE_ALL_CHARACTERS)
 	self:invalidateAceTree()
-	self:collapseUIToTopLevel()
+	--self:collapseUIToTopLevel()
 	self:createTestInGameList()
 end
 
@@ -806,10 +814,7 @@ end
 
 function GetErDone:createTrackableTextForAceTreeCharacter(id, type, character)
 	local trackable = self.db.global.trackables[id][type]
-	local name = self.db.global.characters[character].name
-	if self:isDuplicateName(name) then
-		name = name .. " (" .. self.db.global.characters[character].server .. ")"
-	end
+	local name = self:getServerAwareName(character)
 	local completion = trackable.characters[character] .. "/" .. trackable.completionQuantity
 	return self:padTrackableName(trackable.name, completion)
 end
@@ -841,9 +846,9 @@ function GetErDone:CompleteTrackable(id, type, status)
 		error("CompleteTrackable: null trackable")
 	end
 	local character = self.db.global.character
+	if self.db.global.trackables[id][type].characters == nil then return end
 
 	self:debug("Completing trackable " .. id .. " with status: " .. status)
-
 	if status == COMPLETE_INCREMENT then
 		if trackable.characters[character] < trackable.completionQuantity then
 			trackable.characters[character] = trackable.characters[character] + 1
@@ -886,6 +891,7 @@ end
 function GetErDone:IsCompoundComplete(compound_id, character)
 	local compound = self.db.global.compounds[compound_id]
 	if not compound.active then return false end
+	if self:IsNullOrEmpty(compound.comprisedOf) then return true end
 
 	if self:IsCompletionCached(compound_id, character) then
 		return self:GetCompletionCache(compound_id, character)
@@ -1172,6 +1178,19 @@ function GetErDone:contains(dict, value)
 	return false
 end
 
+function GetErDone:containsTrackable(dict, trackable)
+	local id = trackable.id
+	local type = trackable.type
+
+	if dict == nil then 
+		error("contains: null table or value")
+	end
+	for k, v in pairs(dict) do
+		if v.id == id and v.type == type then return true end
+	end
+	return false
+end
+
 function GetErDone:getNpcId(guid)
 	--  [Unit type]-0-[server ID]-[instance ID]-[zone UID]-[ID]-[Spawn UID]
 	if guid then
@@ -1219,6 +1238,14 @@ end
 
 function GetErDone:fromMergedId(merged)
 	return strsplit(MERGED_DELIMITER, merged)
+end
+
+function GetErDone:getServerAwareName(character)
+	local name = self.db.global.characters[character].name
+	if self:isDuplicateName(name) then
+		name = name .. " (" .. self.db.global.characters[character].server .. ")"
+	end
+	return name
 end
 
 ----------------------------------------------------------------
@@ -1304,6 +1331,18 @@ function GetErDone:getIndent(n)
 	return string.rep(NESTING_INDENT, n)
 end
 
+function GetErDone:generateUiCharacterList()
+	self.db.global.options.uicharacterlist = {}
+	local charList = self.db.global.options.uicharacterlist
+
+	for character, charTable in pairs(self.db.global.characters) do
+		if charList[character] == nil then
+			table.insert(charList, charTable)
+		end
+	end
+
+	self.db.global.options.uichararacterlistcurrent = self.db.global.characters[self.db.global.character]
+end
 
 -----------------------------------------------------
 ------------------ IGNORE NAMES ---------------------
@@ -1320,9 +1359,9 @@ end
 function GetErDone:isNameIgnored(name)
 	local dbname = self.db.global.options.ignoredNames[name]
 	if dbname ~= nil and dbname == true then
-		return false
+		return true
 	end
-	return true
+	return false
 end
 
 function GetErDone:getAvailableNames()
@@ -1697,10 +1736,9 @@ function GetErDone:createIngameList()
     			widgetManager["deleteTrackableButton"]:SetDisabled(true)
     			self.db.global.options.optTrackable = {}
 			elseif string.find(self.db.global.options.treeMouseover, ':') then
-				result = {}
-				string.gsub(self.db.global.options.treeMouseover, "%w+",  function(r) table.insert(result, r) end)
-				self.db.global.options.optTrackable = result
-				widgetManager["trackableSelectionLabel"]:SetText("Current Item: " .. self.db.global.trackables[result[1]][result[2]].name)
+				local id, type = self:fromMergedId(self.db.global.options.treeMouseover)
+				self.db.global.options.optTrackable = {["id"] = id, ["type"] = type}
+				widgetManager["trackableSelectionLabel"]:SetText("Current Item: " .. self.db.global.trackables[id][type].name)
 				widgetManager["deleteTrackableButton"]:SetDisabled(false)
 			end
 		end)
@@ -1833,7 +1871,7 @@ function GetErDone:createIngameList()
 	deleteTrackableButton:SetText("Delete Item")
 	deleteTrackableButton:SetDisabled(true)
 	deleteTrackableButton:SetCallback("OnClick", function(widget, event, text)
-			self:delete(self.db.global.options.optTrackable[1], self.db.global.options.optTrackable[2])
+			self:delete(self.db.global.options.optTrackable.id, self.db.global.options.optTrackable.type)
 			self.db.global.options.optTrackable = {}
 			self.db.global.options.treeMouseover = ""
 			self:updateUI()
@@ -1920,14 +1958,50 @@ function GetErDone:redrawUi()
 		f:SetPoint("LEFT", 0, 0)
 	end
 
-	titlefontstring = f:CreateFontString("TestString", "ARTWORK","GameFontNormal") --GameFontWhite
+	local frameTitle = f:CreateTitleRegion()
+	local titlefontstring = f:CreateFontString("GetErDoneTitle", "ARTWORK", "GameFontNormal") --GameFontWhite
 	titlefontstring:SetText("Get Er Done")
-	titlefontstring:SetPoint("TOPLEFT", 0, 35)
-	titlefontstring:SetHeight(100)
+	titlefontstring:SetPoint("TOPLEFT", 0, 0)
+	titlefontstring:SetHeight(20)
 	titlefontstring:SetWidth(200)
 
+	
+
+	local character = self:getServerAwareName(self.db.global.options.uichararacterlistcurrent.name .. self.db.global.options.uichararacterlistcurrent.server)
+	local currentCharacterDisplay = f:CreateFontString("currentCharacter", "ARTWORK", "GameFontNormal") --GameFontWhite
+	currentCharacterDisplay:SetText(character)
+	currentCharacterDisplay:SetPoint("TOPLEFT", 0, -20)
+	currentCharacterDisplay:SetHeight(20)
+	currentCharacterDisplay:SetWidth(200)
+	frameManager["currentCharacterDisplay"] = currentCharacterDisplay
+
+	local leftButton = CreateFrame("Button", child_compound_id, f)
+	leftButton:SetHeight(20)
+	leftButton:SetWidth(20)
+	leftButton:SetPoint("TOPLEFT", -50, -25) -- shuffle button to the left so it's on top of the text
+    leftButton:SetNormalTexture("Interface/Buttons/UI-Panel-Button-Up")
+   	leftButton:SetHighlightTexture("Interface/Buttons/UI-Panel-Button-Highlight")
+   	leftButton:SetPushedTexture("Interface/Buttons/UI-Panel-Button-Down")
+	leftButton:RegisterForClicks("LeftButtonUp")
+	leftButton:SetFrameStrata("MEDIUM")
+	leftButton:SetScript("OnClick", function(a, event, b) GetErDone:handleUiCharacterButtonClick(CHARACTER_BUTTON_LEFT) end)
+	leftButton:Enable()
+
+	local rightButton = CreateFrame("Button", child_compound_id, f)
+	rightButton:SetHeight(20)
+	rightButton:SetWidth(20)
+	rightButton:SetPoint("TOPRIGHT", -150, -25) -- shuffle button to the left so it's on top of the text
+    rightButton:SetNormalTexture("Interface/Buttons/UI-Panel-Button-Up")
+   	rightButton:SetHighlightTexture("Interface/Buttons/UI-Panel-Button-Highlight")
+   	rightButton:SetPushedTexture("Interface/Buttons/UI-Panel-Button-Down")
+	rightButton:RegisterForClicks("LeftButtonUp")
+	rightButton:SetFrameStrata("MEDIUM")
+	rightButton:SetScript("OnClick", function(a, event, b) GetErDone:handleUiCharacterButtonClick(CHARACTER_BUTTON_RIGHT) end)
+	rightButton:Enable()
+
+
 	frameManager["f"] = f
-	frameManager["previousString"] = titlefontstring
+	frameManager["previousString"] = currentCharacterDisplay
 
 	self:generateIngameCompoundTree("")
 end
@@ -1959,7 +2033,7 @@ local textFrames = {}
 function GetErDone:generateIngameCompoundTree(compoundid)
 	if frameManager.f == nil then return end -- if we're calling before we've loaded the ui for the first time - on login, usually
 	local children = self:getCompoundChildren(compoundid)
-	local character = self.db.global.character -- TODO make this selectable
+	local character = self.db.global.options.uichararacterlistcurrent.name .. self.db.global.options.uichararacterlistcurrent.server
 
 	for k, child_compound_id in pairs(children) do
 		if self:getTreeDisplayCharacter(child_compound_id, nil, false, character) then
@@ -1981,9 +2055,9 @@ function GetErDone:generateIngameCompoundTree(compoundid)
 			button:SetPoint("TOPLEFT", relativeTo, relativePoint, 0 - (tempString:GetWidth() / 2) - 15, 4) -- shuffle button to the left so it's on top of the text
 			button:SetBackdropColor(0, 0, 0, 0) -- seethrough
 			button:SetBackdropBorderColor(0, 0, 0, 0) -- seethrough
-			button:RegisterForClicks("AnyUp")
+			button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 			button:SetFrameStrata("MEDIUM")
-			button:SetScript("OnClick", function() GetErDone:uiCompoundToggle(child_compound_id) end)
+			button:SetScript("OnClick", function(a, event, b) GetErDone:handleUiButtonClick(event, child_compound_id) end)
 			button:SetAlpha(0.5)
 			button:Enable()
 
@@ -2020,18 +2094,16 @@ function GetErDone:updateUI()
 	end
 end
 
-local compoundsNotToShow = {}
-
 function GetErDone:uiShowCompound(compound_id)
-	return compoundsNotToShow[compound_id] == nil
+	return self.db.global.hiddenCompounds[compound_id] == nil
 end
 
 function GetErDone:uiCompoundSetShow(compound_id)
-	compoundsNotToShow[compound_id] = nil
+	self.db.global.hiddenCompounds[compound_id] = nil
 end
 
 function GetErDone:uiCompoundSetHide(compound_id)
-	compoundsNotToShow[compound_id] = 1
+	self.db.global.hiddenCompounds[compound_id] = 1
 end
 
 function GetErDone:uiCompoundToggle(compound_id)
@@ -2049,6 +2121,58 @@ function GetErDone:collapseUIToTopLevel()
 	end
 end
 
+function GetErDone:handleUiButtonClick(event, child_compound_id)
+	if event == EVENT_LEFT_BUTTON then
+		self:uiCompoundToggle(child_compound_id)
+	elseif event == EVENT_RIGHT_BUTTON then
+		self:debug(event) -- TODO bring up context menu
+	end
+end
+
+function GetErDone:handleUiCharacterButtonClick(direction, recurseIfThisIsNil)
+	local found = false -- flag to find when we've got the current name
+	local currentName = self.db.global.options.uichararacterlistcurrent
+	if direction == CHARACTER_BUTTON_RIGHT  then
+		for i, nameTable in ipairs(self.db.global.options.uicharacterlist) do
+
+			if found == true or recurseIfThisIsNil ~= nil then -- if we're recursing, we know that we've found a name and want to pick the next available one
+				if not self:isNameIgnored(nameTable.name .. nameTable.server) then
+					self.db.global.options.uichararacterlistcurrent = { ["name"] = nameTable.name, ["server"] = nameTable.server }
+					self:updateUI()
+					return
+				end
+			end
+
+			if nameTable.name == currentName.name and nameTable.server == currentName.server then
+				found = true -- set the found flag if the name matches
+			end
+		end
+		-- if we need to go back to the start
+		self.db.global.options.uichararacterlistcurrent = self.db.global.options.uicharacterlist[1] -- set the current name to the first one in the list
+	elseif direction == CHARACTER_BUTTON_LEFT then
+		local list = self.db.global.options.uicharacterlist
+		for i = #(list), 1, -1 do
+			local nameTable = list[i]
+
+			if found == true or recurseIfThisIsNil ~= nil then
+				if not self:isNameIgnored(nameTable.name .. nameTable.server) then
+					self.db.global.options.uichararacterlistcurrent = { ["name"] = nameTable.name, ["server"] = nameTable.server }
+					self:updateUI()
+					return
+				end
+			end
+
+			if nameTable.name == currentName.name and nameTable.server == currentName.server then
+				found = true
+			end
+		end
+		-- if we need to go back to the start
+		self.db.global.options.uichararacterlistcurrent = self.db.global.options.uicharacterlist[#(list)] -- set the current name to the last in the list
+	end
+	if recurseIfThisIsNil == nil then
+		self:handleUiCharacterButtonClick(direction, 1) -- recurse once only - prefer to do nothing than stack overflow
+	end
+end
 -----------------------------
 ------------ TEST CODE ------
 -----------------------------
