@@ -22,140 +22,9 @@ options = {
 		general = {
 			order = 1,
 			type = "group",
-			name = "General Settings",
+			name = "",
 			cmdInline = true,
 			args = {
-					trackableID = {
-						order = 1,
-						type = "input",
-						name = "New ID",
-						desc = "Add a new trackable monster, quest, or item ID",
-						pattern = "(%d+)",
-						set = function(k,v)
-							GetErDone:ApplyOption(k,v)
-						end,
-						get = function(k,v)
-							return GetErDone:GetOption("trackableID")
-						end
-					},
-					typechoice = {
-						order = 2,
-						type = "select",
-						name = "ID Type",
-						desc = "What category fits this ID?",
-						values = {["monster"] = "Monster", ["quest"] = "Quest", ["item"] = "Item"},
-						set = function(k,v)
-							GetErDone:ApplyOption(k,v)
-						end,
-						get = function(k,v)
-							return GetErDone:GetOption("typechoice")
-						end,
-					},
-					submitID = {
-						order = 3,
-						type = "execute",
-						name = "Add ID",
-						desc = "",
-						func = function(k,v)
-							GetErDone:AddTrackable(GetErDone:GetOption("trackableID"), GetErDone:GetOption("typechoice"), "some gay monster", GetErDone:GetOption("optCompound"))
-						end
-					},
-					separator = {
-						order = 4,
-						type = "description",
-						name = "",
-					},
-					frequency = {
-						order = 5,
-						type = "select",
-						name = "Frequency",
-						desc = "How often should this item reset?",
-						style = "dropdown",
-						values = {["daily"] = "Daily", ["weekly"] = "Weekly", ["once"] = "Once", ["monthly"] = "Monthly"},
-						set = function(k,v)
-							GetErDone:ApplyOption(k,v)
-						end,
-						get = function()
-							return GetErDone:GetOption("frequency")
-						end
-					},
-					character = {
-						order = 6,
-						type = "select",
-						name = "Character",
-						desc = "Which character is this task for? Your character will not appear in this list until you've logged in with it.",
-						style = "dropdown",
-						values = function()
-							t = {["All"] = CHARACTERS_ALL}
-							for k, v in pairs(GetErDone:GetOption("characters")) do
-								t[k] = v
-							end
-							return t
-						end,
-						set = function(k,v)
-							GetErDone:ApplyOption(k,v)
-						end,
-						get = function()
-							return GetErDone:GetOption("character")
-						end
-					},
-					quantity = {
-						order = 7,
-						type = "input",
-						name = "Quantity",
-						desc = "How many monsters/items/quests to count as complete?",
-						pattern = "(%d+)",
-						set = function(k,v)
-							GetErDone:ApplyOption(k,v)
-						end,
-						get = function()
-							return GetErDone:GetOption("quantity")
-						end
-					},
-					separator2 = {
-						order = 8,
-						type = "description",
-						name = "",
-					},
-					optCompound = {
-						order = 9,
-						type = "select",
-						name = "Objective Group",
-						desc = "",
-						values = function()
-							t = {["None"] = "None"}
-							for k, v in pairs(GetErDone:GetOption("compounds")) do
-								t[k] = v.name
-							end
-							return t
-						end,
-						set = function(k,v)
-							GetErDone:ApplyOption(k,v)
-						end,
-						get = function()
-							return GetErDone:GetOption("optCompound")
-						end,
-					},
-					newCompoundName = {
-						order = 10,
-						type = "input",
-						name = "New Objective Group",
-						set = function(k,v)
-							GetErDone:ApplyOption(k,v)
-						end,
-						get = function()
-							return GetErDone:GetOption("newCompoundName")
-						end
-					},
-					resetuipos = {
-						order = 11,
-						type = "execute",
-						name = "reset ui pos",
-						desc = "",
-						func = function(k,v)
-							frameManager.f:SetPoint("CENTER", 0, 200)
-						end
-					},
 					debug = {
 						order = 50,
 						type = "execute",
@@ -163,79 +32,9 @@ options = {
 						desc = "",
 						func = function() 
 							print("debug disabled")
-							debugMode = false 
+							debugMode = false --TODO change to true 
 						end,
-					},
-					separator2 = {
-						order = 89,
-						type = "description",
-						name = "",
-					},
-					test = {
-						order = 90,
-						type = "toggle",
-						name = "test",
-						desc = "",
-						set = function() GetErDone:addThing() end,
-						get = function() return end,
-					},
-					reset = {
-						order = 91,
-						type = "toggle",
-						name = "reset",
-						desc = "",
-						set = function() 
-							for k in pairs (GetErDone.db.global) do
-    							GetErDone.db.global[k] = nil
-							end
-							GetErDone:OnEnable()
-						end,
-						get = function() return end,
-					},
-					testeventkill = {
-						order = 92,
-						type = "toggle",
-						name = "testeventkill",
-						desc = "",
-						set = function() GetErDone:testeventkill() end,
-						get = function() end,
-					},
-					testeventkill1 = {
-						order = 93,
-						type = "toggle",
-						name = "testeventkill1",
-						desc = "",
-						set = function() GetErDone:testeventkill_one() end,
-						get = function() end,
-					},
-					testui = {
-						order = 94,
-						type = "toggle",
-						name = "testui",
-						desc = "",
-						set = function() GetErDone:testui() end,
-						get = function() end,
-					},
-					test_reset = {
-						order = 95, 
-						type = "execute",
-						name = "test_reset",
-						desc = "",
-						func = function() GetErDone:test_reset() end,
-					},
-					test_increment = {
-						order = 96,
-						type = "execute",
-						name = "test_increment",
-						desc = "",
-						func = function() GetErDone:test_increment() end,
-					},
-					test_completion = {
-						order = 97,
-						type = "execute",
-						name = "test_completion",
-						desc = "",
-						func = function() GetErDone:test_completion() end,
+						hidden = true,
 					},
 					testtree = {
 						order = 98,
@@ -243,6 +42,7 @@ options = {
 						name = "testtree",
 						desc = "",
 						func = function() GetErDone:createIngameList() end,
+						hidden = true,
 					},
 					testtreechar = {
 						order = 98,
@@ -250,6 +50,7 @@ options = {
 						name = "testtreechar",
 						desc = "",
 						func = function() GetErDone:createIngameListChar() end,
+						hidden = true,
 					},
 					ui = {
 						order = 1000,
@@ -257,20 +58,6 @@ options = {
 						name = "ui",
 						desc = "",
 						func = function() GetErDone:createTestInGameList() end,
-					},
-					uitest_set = {
-						order = 1001,
-						type = "execute",
-						name = "uitest_set",
-						desc = "",
-						func = function() GetErDone:uitest_set() end,
-					},
-					uitest_test = {
-						order = 1002,
-						type = "execute",
-						name = "uitest_test",
-						desc = "",
-						func = function() GetErDone:uitest_test() end,
 					},
 				},
 			},
@@ -310,7 +97,7 @@ EVENT_LEFT_BUTTON = "LeftButton"
 EVENT_RIGHT_BUTTON = "RightButton"
 CHARACTER_BUTTON_LEFT = 1
 CHARACTER_BUTTON_RIGHT = 2
-debugMode = true
+debugMode = true -- TODO change to false
 
 
 
@@ -2165,285 +1952,4 @@ function GetErDone:handleUiCharacterButtonClick(direction, recurseIfThisIsNil)
 	if recurseIfThisIsNil == nil then
 		self:handleUiCharacterButtonClick(direction, 1) -- recurse once only - prefer to do nothing than stack overflow
 	end
-end
------------------------------
------------- TEST CODE ------
------------------------------
-
-
-function GetErDone:test_reset()
-	local resettest = { 
-		["resettest"] = { 
-			["name"] = "test",
-			["ownedBy"] = "",
-			["reset"] = { 
-				["hour"] = 4,
-				["day"] = 11,
-				["month"] = 11,
-				["year"] = 2013,
-			},
-			["frequency"] = "weekly",
-			["characters"] = {
-				[self.db.global.character] = 2,
-			},
-			["completionQuantity"] = 2,
-			["active"] = true
-		}
-	}
-	self.db.global.trackables["resettest"] = resettest
-
-	self:UpdateResets()
-
-	if self.db.global.trackables["resettest"]["resettest"].characters[self.db.global.character] == 0 then
-		self:debug("reset test passed!")
-	end
-
-	self.db.global.trackables["resettest"] = nil
-end
-
-function GetErDone:test_increment()
-	local incrementtest = { 
-		["incrementtest"] = { 
-			["name"] = "test",
-			["ownedBy"] = "",
-			["reset"] = { 
-				["hour"] = 4,
-				["day"] = 11,
-				["month"] = 11,
-				["year"] = 2013,
-			},
-			["frequency"] = "weekly",
-			["characters"] = {
-				[self.db.global.character] = 0,
-			},
-			["completionQuantity"] = 2,
-			["active"] = true
-		}
-	}
-	self.db.global.trackables["incrementtest"] = incrementtest
-
-	self:CompleteTrackable("incrementtest", "incrementtest", COMPLETE_INCREMENT)
-
-	if self.db.global.trackables["incrementtest"]["incrementtest"].characters[self.db.global.character] == 1 then
-		self:debug("increment test passed!")
-	end
-
-	self.db.global.trackables["incrementtest"] = nil
-end
-
-
-function GetErDone:testeventkill()
-	local guid1 = "Creature-0-1403-870-139-1-0000D2B633"
-	local guid2 = "Creature-0-1403-870-139-2-0000D2B633"
-	--self:checkEvent(guid1TYPE_MONSTER, )
-	--self:checkEvent(TYPE_MONSTER, guid2)
-end
-
-function GetErDone:testeventkill_one()
-	self.db.global.test = {["test"] = "a"}
-	local t = self.db.global.test
-	t.test = "b"
-	self:debug(self.db.global.test.test)
-	self.db.global.test = nil
-end
-
-function GetErDone:addThing()
-	
-end
-
-function GetErDone:test_completion()
-	local trackable_incomplete = { 
-		["trackable_incomplete"] = { 
-			["name"] = "trackable_incomplete",
-			["ownedBy"] = "",
-			["reset"] = { 
-				["hour"] = 4,
-				["day"] = 11,
-				["month"] = 11,
-				["year"] = 2020,
-			},
-			["frequency"] = "weekly",
-			["characters"] = {
-				[self.db.global.character] = 0,
-			},
-			["completionQuantity"] = 1,
-			["active"] = true
-		}
-	}
-	local trackable_complete = { 
-		["trackable_complete"] = { 
-			["name"] = "trackable_complete",
-			["ownedBy"] = "",
-			["reset"] = { 
-				["hour"] = 4,
-				["day"] = 11,
-				["month"] = 11,
-				["year"] = 2020,
-			},
-			["frequency"] = "weekly",
-			["characters"] = {
-				[self.db.global.character] = 1,
-			},
-			["completionQuantity"] = 1,
-			["active"] = true
-		}
-	}
-	local trackable_inactive = { 
-		["trackable_inactive"] = { 
-			["name"] = "trackable_inactive",
-			["ownedBy"] = "",
-			["reset"] = { 
-				["hour"] = 4,
-				["day"] = 11,
-				["month"] = 11,
-				["year"] = 2020,
-			},
-			["frequency"] = "weekly",
-			["characters"] = {
-				[self.db.global.character] = 1,
-			},
-			["completionQuantity"] = 1,
-			["active"] = false
-		}
-	}
-	local compound_one_complete = {
-			["name"] = "compound_one_complete",
-			["active"] = true,
-			["comprisedOf"] = {
-				{["id"] = "trackable_complete", ["type"] = "trackable_complete"},
-			},
-			["ownedBy"] = "",
-			["displayChildren"] = true,
-			["childCompletionQuantity"] = 1,
-	}
-	local compound_half_complete = {
-			["name"] = "compound_half_complete",
-			["active"] = true,
-			["comprisedOf"] = {
-				{["id"] = "trackable_complete", ["type"] = "trackable_complete"},
-				{["id"] = "trackable_incomplete", ["type"] = "trackable_incomplete"},
-			},
-			["ownedBy"] = "",
-			["displayChildren"] = true,
-			["childCompletionQuantity"] = 1,
-	}
-	local compound_quantity_two = {
-			["name"] = "compound_quantity_two",
-			["active"] = true,
-			["comprisedOf"] = {
-				{["id"] = "trackable_complete", ["type"] = "trackable_complete"},
-				{["id"] = "trackable_incomplete", ["type"] = "trackable_incomplete"},
-			},
-			["ownedBy"] = "",
-			["displayChildren"] = true,
-			["childCompletionQuantity"] = 2,
-	}
-	local compound_compound = {
-			["name"] = "compound_compound",
-			["active"] = true,
-			["comprisedOf"] = {
-				"compound_one_complete",
-				"compound_quantity_two",
-			},
-			["ownedBy"] = "",
-			["displayChildren"] = true,
-			["childCompletionQuantity"] = 2,
-	}
-	local compound_mixed = {
-			["name"] = "compound_mixed",
-			["active"] = true,
-			["comprisedOf"] = {
-				"compound_one_complete",
-				{["id"] = "trackable_complete", ["type"] = "trackable_complete"},
-			},
-			["ownedBy"] = "",
-			["displayChildren"] = true,
-			["childCompletionQuantity"] = 2,
-	}
-
-	self.db.global.trackables["trackable_incomplete"] = trackable_incomplete
-	self.db.global.trackables["trackable_complete"] = trackable_complete
-	self.db.global.trackables["trackable_inactive"] = trackable_inactive
-	self.db.global.compounds["compound_one_complete"] = compound_one_complete
-	self.db.global.compounds["compound_half_complete"] = compound_half_complete
-	self.db.global.compounds["compound_quantity_two"] = compound_quantity_two
-	self.db.global.compounds["compound_compound"] = compound_compound
-	self.db.global.compounds["compound_mixed"] = compound_mixed
-
-	local character = self.db.global.character
-	local failures = {}
-
-	if self:IsTrackableComplete("trackable_incomplete", "trackable_incomplete", character) then
-		table.insert(failures, "trackable_incomplete failed")
-	end
-
-	if not self:IsTrackableComplete("trackable_complete", "trackable_complete", character) then
-		table.insert(failures, "trackable_complete failed")
-	end
-
-	if not self:IsTrackableComplete("trackable_inactive", "trackable_inactive", character) then
-		table.insert(failures, "trackable_inactive failed")
-	end
-
-	if not self:IsCompoundComplete("compound_one_complete", character) then
-		table.insert(failures, "compound_one_complete failed")
-	end
-
-	if not self:IsCompoundComplete("compound_half_complete", character) then
-		table.insert(failures, "compound_half_complete failed")
-	end
-
-	if self:IsCompoundComplete("compound_quantity_two", character) then
-		table.insert(failures, "compound_quantity_two failed")
-	end
-
-	if self:IsCompoundComplete("compound_compound", character) then
-		table.insert(failures, "compound_compound failed")
-	end
-
-	if not self:IsCompoundComplete("compound_mixed", character) then
-		table.insert(failures, "compound_mixed failed")
-	end
-
-	for k, v in pairs(failures) do
-		self:debug(v)
-	end
-
-
-	self.db.global.trackables["trackable_incomplete"] = nil
-	self.db.global.trackables["trackable_complete"] = nil
-	self.db.global.trackables["trackable_inactive"] = nil
-	self.db.global.compounds["compound_one_complete"] = nil
-	self.db.global.compounds["compound_half_complete"] = nil
-	self.db.global.compounds["compound_quantity_two"] = nil
-	self.db.global.compounds["compound_compound"] = nil
-	self.db.global.compounds["compound_mixed"] = nil
-
-end
-
-function GetErDone:uitest_set()
-	local t = { 
-		["t"] = { 
-			["name"] = "trackable_inactive",
-			["ownedBy"] = "default_2",
-			["reset"] = { 
-				["hour"] = 4,
-				["day"] = 11,
-				["month"] = 11,
-				["year"] = 2020,
-			},
-			["frequency"] = "weekly",
-			["characters"] = {
-				[self.db.global.character] = 0,
-			},
-			["completionQuantity"] = 1,
-			["active"] = true
-		}
-	}
-	self.db.global.trackables["1"] = t
-	table.insert(self.db.global.compounds["default_2"].comprisedOf, { ["id"] = "1", ["type"] = "t" })
-end
-
-function GetErDone:uitest_test()
-	self:CompleteTrackable("1", "t", COMPLETE_INCREMENT)
 end
