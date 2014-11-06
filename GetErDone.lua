@@ -362,7 +362,6 @@ function GetErDone:addCompound()
 	local compound_id = self.db.global.options.compoundId or GetErDone:generateNextCompoundId()
 	self.db.global.compounds[compound_id] = compound
 	self:updateOwner(compound.ownedBy, compound_id, nil)
-
 	self:invalidateAceTree()
 	self:updateUI()
 	return true
@@ -385,7 +384,16 @@ function GetErDone:prepareCharacters(characters)
 end
 
 function GetErDone:isCompoundId(id)
-	return type(id) == "string"
+	--Modified slightly to deal with the OnGroupSelect workaround, I'm getting Trackable IDs as "12345:Butts"
+	if type(id) == "table" then
+		return false
+	elseif string.match(id, '%d+:%a+') then 
+		return false
+	elseif self.db.global.characters[id] ~= nil then
+		return false
+	else
+		return type(id) == "string"
+	end
 end
 
 function GetErDone:generateNextCompoundId()
@@ -429,13 +437,15 @@ function GetErDone:AddTrackable(id, type, name, owner, frequency, characters, qu
 
     self:updateOwner(owner, id, type)
 
-    self:refreshTrackableList()
+    --self:refreshTrackableList()
 	self:invalidateAceTree()
 	self:updateUI()
 
     --Zero Out Options Fields--
 	self.db.global.options.quantity = ""
 	self.db.global.options.trackableID = ""
+	self.db.global.options.trackablename = ""
+
 	widgetManager["trackableID"]:SetText("")
 	widgetManager["trackableQuantity"]:SetText("")
 end
@@ -493,8 +503,10 @@ function GetErDone:OnEnable()
 	if self.db.global.characters == nil then self.db.global.characters = {} end
 	if self.db.global.compounds == nil then self.db.global.compounds = {} end
 	if self.db.global.options == nil then self.db.global.options = {} end
-	if self.db.global.options.quantity == nil then self.db.global.options.quantity = 1 end
+	if self.db.global.options.quantity == nil then self.db.global.options.quantity = "" end
+	if self.db.global.options.compoundquantity == nil then self.db.global.options.compoundquantity = "" end
 	if self.db.global.options.frequency == nil then self.db.global.options.frequency = "" end
+	if self.db.global.options.optCompound == nil then self.db.global.options.optCompound = "" end
 	if self.db.global.options.nextCompoundId == nil then self.db.global.options.nextCompoundId = 1 end
 	if self.db.global.options.newCompoundName == nil then self.db.global.options.newCompoundName = "" end
 	if self.db.global.options.ignoredNames == nil then self.db.global.options.ignoredNames = {} end
@@ -968,10 +980,12 @@ function GetErDone:ResetCompare(a, b)
 		error("ResetEquals: null reset")
 	end
 
+	if a == 0 or b == 0 then return false end
 	if a.year > b.year then return false end
 	if a.month > b.month then return false end
 	if a.day > b.day then return false end
 	if a.hour > b.hour then return false end
+
 	return true
 end
 
@@ -1073,10 +1087,18 @@ function GetErDone:deleteCompound(compound_id)
 end
 
 function GetErDone:deleteTrackable(id, type)
+	if self.db.global.trackables[id][type].ownedBy ~= "" then
+		for i,v in ipairs(self.db.global.compounds[self.db.global.trackables[id][type].ownedBy].comprisedOf) do
+			if v["id"] == id and v["type"] == type then
+				table.remove(self.db.global.compounds[self.db.global.trackables[id][type].ownedBy].comprisedOf, i)
+			end
+		end
+	end
 	self.db.global.trackables[id][type] = nil
 	if self:IsNullOrEmpty(self.db.global.trackables[id]) then
 		self.db.global.trackables[id] = nil
 	end
+
 end
 
 --------------------------------------------------------------------
@@ -1315,7 +1337,7 @@ end
 
 ---------------------------------UI CODE-------------------------------------------
 
-function GetErDone:testui()
+--[[function GetErDone:testui()
 	local f = AceGUI:Create("Frame")
 	local leftLabelgroup = {}
 
@@ -1381,7 +1403,7 @@ function GetErDone:testui()
 		end
 	end)
 
-	compoundSelectionLabel:SetText("Current Group: " .. self.db.global.options.optCompound)
+	compoundSelectionLabel:SetText("Current Group: " .. self.db.global.compounds[self.db.global.options.optCompound].name)
 	editCompound:SetLabel("Group Name")
 	editCompound:SetCallback("OnEnterPressed", function(widget, event, text) self:submitCompoundEdit(widget, event, text) end)
 
@@ -1495,7 +1517,7 @@ function GetErDone:testui()
 	f:DoLayout() --HOLY MOTHERFUCKING SHIT IS THIS LINE IMPORTANT
 
 	
-end
+end]]--
 
 function GetErDone:buttonCheck(t)
 	if t == "compound" then
@@ -1508,6 +1530,7 @@ function GetErDone:buttonCheck(t)
 			self.db.global.options.typechoice ~= "" and
 			self.db.global.options.frequency ~= "" and
 			self.db.global.options.character ~= "" and
+			self.db.global.options.trackablename ~= "" and
 			self.db.global.options.quantity ~= "" then
 			widgetManager["addTrackableButton"]:SetDisabled(false)
 		end
@@ -1515,7 +1538,7 @@ function GetErDone:buttonCheck(t)
 end
 
 
-function GetErDone:refreshTrackableList()
+--[[function GetErDone:refreshTrackableList()
 	widgetManager["trackableFrame"]:ReleaseChildren()
 	for k, v in pairs(self:getTrackableChildren(self.db.global.compounds[self.db.global.options.optCompound])) do
 		local label = AceGUI:Create("InteractiveLabel")
@@ -1524,14 +1547,14 @@ function GetErDone:refreshTrackableList()
 		label:SetCallback("OnClick", function(widgetx) self:clickTrackableLabel(widgetx, {k, v}) end)
 		widgetManager["trackableFrame"]:AddChild(label)
 	end
-end
+end]]--
 
-function GetErDone:refreshCompoundList()
+--[[function GetErDone:refreshCompoundList()
 	widgetManager["compoundFrame"]:ReleaseChildren()
 	self:createCompoundTree("")
-end
+end]]--
 
-function GetErDone:createCompoundTree(compoundid)
+--[[function GetErDone:createCompoundTree(compoundid)
 	children = self:getCompoundChildren(compoundid)
 	for k,v in pairs(children) do
 		local label = AceGUI:Create("InteractiveLabel")
@@ -1542,9 +1565,9 @@ function GetErDone:createCompoundTree(compoundid)
 		widgetManager["compoundFrame"]:AddChild(label)
 		self:createCompoundTree(v)
 	end
-end
+end]]--
 
-function GetErDone:clickGroupLabel(widget, compoundID, isUp)
+--[[function GetErDone:clickGroupLabel(widget, compoundID, isUp)
 	widgetManager["trackableFrame"]:ReleaseChildren()
 	widgetManager["compoundFrame"]:ReleaseChildren()
 
@@ -1553,7 +1576,7 @@ function GetErDone:clickGroupLabel(widget, compoundID, isUp)
 
 	widgetManager["compoundSelectionLabel"]:SetText("Current Group: " .. self.db.global.compounds[self.db.global.options.optCompound].name)
 	self:refreshTrackableList()
-end
+end]]--
 
 function GetErDone:clickTrackableLabel(widget, trackableID)
 
@@ -1659,10 +1682,207 @@ function GetErDone:createIngameList()
 
     local mainTree = AceGUI:Create("TreeGroup")
     mainTree:SetTree(self:getAceTree(false))
+    mainTree:SetCallback("OnButtonEnter", 
+    	function(widget, event, path, frame)
+			self.db.global.options["treeMouseover"] = frame["value"]
+    	end)
+    mainTree:SetCallback("OnGroupSelected",
+    	function(widget, event, group)
+    		if self:isCompoundId(self.db.global.options.treeMouseover) then
+    			self.db.global.options.optCompound = self.db.global.options.treeMouseover
+    			widgetManager["compoundSelectionLabel"]:SetText("Current Group: " .. self.db.global.compounds[self.db.global.options.optCompound].name)
+    			widgetManager["deleteCompoundButton"]:SetDisabled(false)
+    			self.db.global.options.optTrackable = ""
+    			widgetManager["trackableSelectionLabel"]:SetText("Current Item: ")
+    			widgetManager["deleteTrackableButton"]:SetDisabled(true)
+    			self.db.global.options.optTrackable = {}
+			elseif string.find(self.db.global.options.treeMouseover, ':') then
+				result = {}
+				string.gsub(self.db.global.options.treeMouseover, "%w+",  function(r) table.insert(result, r) end)
+				self.db.global.options.optTrackable = result
+				widgetManager["trackableSelectionLabel"]:SetText("Current Item: " .. self.db.global.trackables[result[1]][result[2]].name)
+				widgetManager["deleteTrackableButton"]:SetDisabled(false)
+			end
+		end)
+    ---Copy Pasted Shit---
 
-    local gayTree = AceGUI:Create("Button")
-   
-    mainTree:AddChild(gayTree)
+	local newCompoundGroup = AceGUI:Create("InlineGroup")
+	local compoundSelectionLabel = AceGUI:Create("Label")
+	local editCompound = AceGUI:Create("EditBox")
+	local compoundQuantity = AceGUI:Create("EditBox")
+	local compoundChildrenToggle = AceGUI:Create("CheckBox")
+	local buttonCompound = AceGUI:Create("Button")
+	local deleteCompoundButton = AceGUI:Create("Button")
+
+	buttonCompound:SetText("Add Group")
+	buttonCompound:SetCallback("OnClick", function(widget, event, text) 
+		local success = self:addCompound() 
+		if success then
+			widgetManager["editCompound"]:SetText("")
+			widgetManager["compoundQuantity"]:SetText("")
+			self.db.global.options.compoundquantity = ""
+			self.db.global.options.newCompoundName = ""
+			widgetManager["buttonCompound"]:SetDisabled(true)
+			mainTree:SetTree(self:getAceTree(false))
+		end
+	end)
+
+	if self.db.global.options.optCompound ~= "" then
+		compoundSelectionLabel:SetText("Current Group: " .. self.db.global.compounds[self.db.global.options.optCompound].name)
+	else
+		compoundSelectionLabel:SetText("Current Group: ")
+	end
+
+	editCompound:SetLabel("Group Name")
+	editCompound:SetCallback("OnEnterPressed", function(widget, event, text) self:submitCompoundEdit(widget, event, text) end)
+
+	compoundQuantity:SetLabel("Quantity - 0 for all children")
+	compoundQuantity:SetCallback("OnEnterPressed", function(widget, event, text) self:getCompoundQuantity(widget, event, text) end)
+
+	compoundChildrenToggle:SetLabel("Display Children")
+	compoundChildrenToggle:SetValue(true)
+	compoundChildrenToggle:SetCallback("OnValueChanged", function(widget, event, value) self:getCompoundChildrenToggle(widget, event, value) end)
+
+	newCompoundGroup:SetRelativeWidth(0.5)
+	newCompoundGroup:SetLayout("List")
+
+	buttonCompound:SetDisabled(true)
+
+	deleteCompoundButton:SetText("Delete Group")
+	if self.db.global.options.optCompound == "" then deleteCompoundButton:SetDisabled(true) end
+	deleteCompoundButton:SetCallback("OnClick", function(widget, event, text)
+			self:delete(self.db.global.options.optCompound)
+			self.db.global.options.optCompound = ""
+			self.db.global.options.treeMouseover = ""
+			self:updateUI()
+			self:invalidateAceTree()
+			mainTree:SetTree(self:getAceTree(false))
+			compoundSelectionLabel:SetText("Current Group: ")
+		end)
+
+--- New Trackable Interface ---
+
+	local newTrackableGroup = AceGUI:Create("InlineGroup")
+	local trackableSelectionLabel = AceGUI:Create("Label")
+	local trackableType = AceGUI:Create("Dropdown")
+	local trackableID = AceGUI:Create("EditBox")
+	local trackableName = AceGUI:Create("EditBox")
+	local trackableSpacer = AceGUI:Create("Heading")
+	local trackableCharacter = AceGUI:Create("Dropdown")
+	local trackableFrequency = AceGUI:Create("Dropdown")
+	local addTrackableButton = AceGUI:Create("Button")
+	local trackableQuantity = AceGUI:Create("EditBox")
+	local deleteTrackableButton = AceGUI:Create("Button")
+
+	addTrackableButton:SetText("Add ID")
+	addTrackableButton:SetCallback("OnClick", 
+		function(widget, event) self:AddTrackable(
+				self.db.global.options.trackableID, 
+				self.db.global.options.typechoice, 
+				self.db.global.options.trackablename,
+				self.db.global.options.optCompound,
+				self.db.global.options.frequency,
+				self.db.global.options.character, -- TODO multiple name selection
+				self.db.global.options.quantity
+			)
+			self:invalidateAceTree()
+			mainTree:SetTree(self:getAceTree(false))
+			widgetManager["addTrackableButton"]:SetDisabled(true)
+		end)
+
+	trackableSpacer:SetText("")
+
+	if self.db.global.options.optCompound ~= "" then
+		trackableSelectionLabel:SetText("Current Item: " .. self.db.global.compounds[self.db.global.options.optCompound].name)
+	else
+		trackableSelectionLabel:SetText("Current Item: ")
+	end
+
+	trackableName:SetText("")
+	trackableName:SetLabel("Name")
+	trackableName:SetCallback("OnEnterPressed", function(widget, event, text) self:submitTrackableNameEdit(widget, event, text) end)
+
+	trackableID:SetCallback("OnEnterPressed", function(widget, event, text) 
+		self:submitIDEdit(widget, event, text) 
+	end)
+	trackableID:SetLabel("ID")
+
+	trackableType:SetList(TYPE_LIST)
+	trackableType:SetCallback("OnValueChanged", function(widget, event, key) 
+		self:getTrackableTypeDropdown(widget, event, key) 
+	end)
+	trackableType:SetLabel("Type")
+	trackableType:SetValue(self.db.global.options.typechoice)
+
+	trackableFrequency:SetList({["daily"] = "Daily", ["weekly"] = "Weekly", ["monthly"] = "Monthly", ["once"] = "Once"})
+	trackableFrequency:SetCallback("OnValueChanged", function(widget, event, key) self:getTrackableFrequencyDropdown(widget, event, key) end)
+	trackableFrequency:SetLabel("Frequency")
+	trackableFrequency:SetValue(self.db.global.options.frequency)
+
+	trackableCharacter:SetList(self:getCharacters())
+	trackableCharacter:SetCallback("OnValueChanged", function(widget, event, key) self:getTrackableCharacterDropdown(widget, event, key) end)
+	trackableCharacter:SetLabel("Character")
+	trackableCharacter:SetValue(self.db.global.options.character)
+
+	trackableQuantity:SetCallback("OnEnterPressed", function(widget, event, text) self:getTrackableQuantity(widget, event, text) end)
+	trackableQuantity:SetLabel("Quantity")
+
+	newTrackableGroup:SetRelativeWidth(0.5)
+	newTrackableGroup:SetLayout("List")
+
+	deleteTrackableButton:SetText("Delete Item")
+	deleteTrackableButton:SetDisabled(true)
+	deleteTrackableButton:SetCallback("OnClick", function(widget, event, text)
+			self:delete(self.db.global.options.optTrackable[1], self.db.global.options.optTrackable[2])
+			self.db.global.options.optTrackable = {}
+			self.db.global.options.treeMouseover = ""
+			self:updateUI()
+			self:invalidateAceTree()
+			mainTree:SetTree(self:getAceTree(false))
+			trackableSelectionLabel:SetText("Current Item: ")
+		end)
+
+	addTrackableButton:SetDisabled(true)
+
+
+	mainTree:AddChild(newCompoundGroup)
+	newCompoundGroup:AddChild(compoundSelectionLabel)
+	newCompoundGroup:AddChild(editCompound) 
+	newCompoundGroup:AddChild(compoundQuantity)
+	newCompoundGroup:AddChild(compoundChildrenToggle) 
+	newCompoundGroup:AddChild(buttonCompound)
+	newCompoundGroup:AddChild(deleteCompoundButton)
+
+	mainTree:AddChild(newTrackableGroup)
+	newTrackableGroup:AddChild(trackableSelectionLabel)
+	newTrackableGroup:AddChild(trackableType)
+	newTrackableGroup:AddChild(trackableID)
+	newTrackableGroup:AddChild(trackableName)
+	--newTrackableGroup:AddChild(trackableSpacer)
+	newTrackableGroup:AddChild(trackableFrequency)
+	newTrackableGroup:AddChild(trackableCharacter)
+	newTrackableGroup:AddChild(trackableQuantity)
+	newTrackableGroup:AddChild(addTrackableButton)
+	newTrackableGroup:AddChild(deleteTrackableButton)
+	
+	widgetManager = {
+	["trackableName"] = trackableName,
+	["editCompound"] = editCompound, 
+	["compoundQuantity"] = compoundQuantity, 
+	["trackableID"] = trackableID, 
+	["trackableQuantity"] = trackableQuantity,
+	["trackableFrame"] = trackablesScroll,
+	["compoundFrame"] = groupsScroll,
+	["compoundSelectionLabel"] = compoundSelectionLabel,
+	["buttonCompound"] = buttonCompound,
+	["addTrackableButton"] = addTrackableButton,
+	["deleteCompoundButton"] = deleteCompoundButton,
+	["trackableSelectionLabel"] = trackableSelectionLabel,
+	["deleteTrackableButton"] = deleteTrackableButton,
+	}
+
+	f:DoLayout() --HOLY MOTHERFUCKING SHIT IS THIS LINE IMPORTANT
+    ---Copy Pasted Shit---
 
     f:AddChild(mainTree)
 
