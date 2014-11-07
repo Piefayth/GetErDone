@@ -333,6 +333,7 @@ function GetErDone:LoadDefaults()
 		for id, typeTree in pairs(self.db.global.trackables) do
 			for type, trackable in pairs(typeTree) do
 				trackable["characters"] = { [self.db.global.character] = 0 }
+				trackable["reset"] = self:NextReset(trackable.frequency, self.db.global.region)
 			end
 		end
 

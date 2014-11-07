@@ -258,6 +258,10 @@ defaults = {
 						["id"] = "36597",
 						["type"] = "Creature",
 					}, -- [4]
+					{
+						["id"] = "26693",
+						["type"] = "Creature",
+					},
 				},
 				["ownedBy"] = "default_9",
 			},
@@ -303,7 +307,7 @@ defaults = {
 				["name"] = "Throne of Thunder",
 				["active"] = true,
 				["childCompletionQuantity"] = 0,
-				["displayChildren"] = false,
+				["displayChildren"] = true,
 				["ownedBy"] = "default_20",
 				["comprisedOf"] = {
 					{
@@ -419,12 +423,6 @@ defaults = {
 					["completionQuantity"] = 1,
 					["name"] = "Ragnaros",
 					["active"] = true,
-					["reset"] = {
-						["day"] = 12,
-						["hour"] = 2,
-						["year"] = 2014,
-						["month"] = 11,
-					},
 					["ownedBy"] = "default_4",
 					["frequency"] = "weekly",
 				},
@@ -436,12 +434,6 @@ defaults = {
 					["active"] = true,
 					["frequency"] = "weekly",
 					["ownedBy"] = "default_7",
-					["reset"] = {
-						["year"] = 2014,
-						["day"] = 12,
-						["hour"] = 2,
-						["month"] = 11,
-					},
 				},
 			},
 			["33515"] = {
@@ -451,12 +443,6 @@ defaults = {
 					["active"] = true,
 					["frequency"] = "weekly",
 					["ownedBy"] = "default_7",
-					["reset"] = {
-						["year"] = 2014,
-						["day"] = 12,
-						["hour"] = 2,
-						["month"] = 11,
-					},
 				},
 			},
 			["19622"] = {
@@ -466,12 +452,6 @@ defaults = {
 					["active"] = true,
 					["frequency"] = "weekly",
 					["ownedBy"] = "default_11",
-					["reset"] = {
-						["year"] = 2014,
-						["day"] = 12,
-						["hour"] = 2,
-						["month"] = 11,
-					},
 				},
 			},
 			["71865"] = {
@@ -479,12 +459,6 @@ defaults = {
 					["completionQuantity"] = 1,
 					["name"] = "Garrosh Hellscream",
 					["active"] = true,
-					["reset"] = {
-						["hour"] = 2,
-						["year"] = 2014,
-						["day"] = 12,
-						["month"] = 11,
-					},
 					["ownedBy"] = "default_20",
 					["frequency"] = "weekly",
 				},
@@ -496,12 +470,6 @@ defaults = {
 					["active"] = true,
 					["frequency"] = "weekly",
 					["ownedBy"] = "default_7",
-					["reset"] = {
-						["year"] = 2014,
-						["day"] = 12,
-						["hour"] = 2,
-						["month"] = 11,
-					},
 				},
 			},
 			["194312"] = {
@@ -511,12 +479,6 @@ defaults = {
 					["active"] = true,
 					["frequency"] = "weekly",
 					["ownedBy"] = "default_7",
-					["reset"] = {
-						["year"] = 2014,
-						["day"] = 12,
-						["hour"] = 2,
-						["month"] = 11,
-					},
 				},
 			},
 			["36597"] = {
@@ -526,12 +488,6 @@ defaults = {
 					["active"] = true,
 					["frequency"] = "weekly",
 					["ownedBy"] = "default_12",
-					["reset"] = {
-						["year"] = 2014,
-						["day"] = 12,
-						["hour"] = 2,
-						["month"] = 11,
-					},
 				},
 			},
 			["69712"] = {
@@ -539,12 +495,6 @@ defaults = {
 					["completionQuantity"] = 1,
 					["name"] = "Ji-Kun",
 					["active"] = true,
-					["reset"] = {
-						["hour"] = 2,
-						["year"] = 2014,
-						["day"] = 12,
-						["month"] = 11,
-					},
 					["ownedBy"] = "default_22",
 					["frequency"] = "weekly",
 				},
@@ -556,12 +506,6 @@ defaults = {
 					["active"] = true,
 					["frequency"] = "weekly",
 					["ownedBy"] = "default_16",
-					["reset"] = {
-						["year"] = 2014,
-						["day"] = 12,
-						["hour"] = 2,
-						["month"] = 11,
-					},
 				},
 			},
 			["31125"] = {
@@ -571,12 +515,6 @@ defaults = {
 					["active"] = true,
 					["frequency"] = "weekly",
 					["ownedBy"] = "default_13",
-					["reset"] = {
-						["year"] = 2014,
-						["day"] = 12,
-						["hour"] = 2,
-						["month"] = 11,
-					},
 				},
 			},
 			["33993"] = {
@@ -586,12 +524,6 @@ defaults = {
 					["active"] = true,
 					["frequency"] = "weekly",
 					["ownedBy"] = "default_13",
-					["reset"] = {
-						["year"] = 2014,
-						["day"] = 12,
-						["hour"] = 2,
-						["month"] = 11,
-					},
 				},
 			},
 			["68476"] = {
@@ -599,12 +531,6 @@ defaults = {
 					["completionQuantity"] = 1,
 					["name"] = "Horridon",
 					["active"] = true,
-					["reset"] = {
-						["hour"] = 2,
-						["year"] = 2014,
-						["day"] = 12,
-						["month"] = 11,
-					},
 					["ownedBy"] = "default_22",
 					["frequency"] = "weekly",
 				},
@@ -616,12 +542,6 @@ defaults = {
 					["active"] = true,
 					["frequency"] = "weekly",
 					["ownedBy"] = "default_19",
-					["reset"] = {
-						["year"] = 2014,
-						["day"] = 12,
-						["hour"] = 2,
-						["month"] = 11,
-					},
 				},
 			},
 			["214384"] = {
@@ -629,12 +549,6 @@ defaults = {
 					["completionQuantity"] = 1,
 					["name"] = "Elegon",
 					["active"] = true,
-					["reset"] = {
-						["hour"] = 2,
-						["year"] = 2014,
-						["day"] = 12,
-						["month"] = 11,
-					},
 					["ownedBy"] = "default_21",
 					["frequency"] = "weekly",
 				},
@@ -644,12 +558,6 @@ defaults = {
 					["completionQuantity"] = 1,
 					["name"] = "Kil'Jaeden",
 					["active"] = true,
-					["reset"] = {
-						["day"] = 12,
-						["hour"] = 2,
-						["year"] = 2014,
-						["month"] = 11,
-					},
 					["ownedBy"] = "default_6",
 					["frequency"] = "weekly",
 				},
@@ -659,12 +567,6 @@ defaults = {
 					["completionQuantity"] = 1,
 					["name"] = "Elegon",
 					["active"] = true,
-					["reset"] = {
-						["hour"] = 2,
-						["year"] = 2014,
-						["day"] = 12,
-						["month"] = 11,
-					},
 					["ownedBy"] = "default_21",
 					["frequency"] = "weekly",
 				},
@@ -676,12 +578,6 @@ defaults = {
 					["active"] = true,
 					["frequency"] = "weekly",
 					["ownedBy"] = "default_7",
-					["reset"] = {
-						["year"] = 2014,
-						["day"] = 12,
-						["hour"] = 2,
-						["month"] = 11,
-					},
 				},
 			},
 			["207891"] = {
@@ -691,12 +587,6 @@ defaults = {
 					["active"] = true,
 					["frequency"] = "weekly",
 					["ownedBy"] = "default_15",
-					["reset"] = {
-						["year"] = 2014,
-						["day"] = 12,
-						["hour"] = 2,
-						["month"] = 11,
-					},
 				},
 			},
 			["33186"] = {
@@ -706,12 +596,6 @@ defaults = {
 					["active"] = true,
 					["frequency"] = "weekly",
 					["ownedBy"] = "default_7",
-					["reset"] = {
-						["year"] = 2014,
-						["day"] = 12,
-						["hour"] = 2,
-						["month"] = 11,
-					},
 				},
 			},
 			["10184"] = {
@@ -721,12 +605,6 @@ defaults = {
 					["active"] = true,
 					["frequency"] = "weekly",
 					["ownedBy"] = "default_10",
-					["reset"] = {
-						["year"] = 2014,
-						["day"] = 12,
-						["hour"] = 2,
-						["month"] = 11,
-					},
 				},
 			},
 			["22917"] = {
@@ -734,12 +612,6 @@ defaults = {
 					["completionQuantity"] = 1,
 					["name"] = "Illidan Stormrage",
 					["active"] = true,
-					["reset"] = {
-						["day"] = 12,
-						["hour"] = 2,
-						["year"] = 2014,
-						["month"] = 11,
-					},
 					["ownedBy"] = "default_5",
 					["frequency"] = "weekly",
 				},
@@ -751,12 +623,6 @@ defaults = {
 					["active"] = true,
 					["frequency"] = "weekly",
 					["ownedBy"] = "default_12",
-					["reset"] = {
-						["year"] = 2014,
-						["day"] = 12,
-						["hour"] = 2,
-						["month"] = 11,
-					},
 				},
 			},
 			["32867"] = {
@@ -766,12 +632,6 @@ defaults = {
 					["active"] = true,
 					["frequency"] = "weekly",
 					["ownedBy"] = "default_8",
-					["reset"] = {
-						["year"] = 2014,
-						["day"] = 12,
-						["hour"] = 2,
-						["month"] = 11,
-					},
 				},
 			},
 			["210079"] = {
@@ -781,12 +641,6 @@ defaults = {
 					["active"] = true,
 					["frequency"] = "weekly",
 					["ownedBy"] = "default_18",
-					["reset"] = {
-						["year"] = 2014,
-						["day"] = 12,
-						["hour"] = 2,
-						["month"] = 11,
-					},
 				},
 			},
 			["33118"] = {
@@ -796,12 +650,6 @@ defaults = {
 					["active"] = true,
 					["frequency"] = "weekly",
 					["ownedBy"] = "default_7",
-					["reset"] = {
-						["year"] = 2014,
-						["day"] = 12,
-						["hour"] = 2,
-						["month"] = 11,
-					},
 				},
 			},
 			["32927"] = {
@@ -811,12 +659,6 @@ defaults = {
 					["active"] = true,
 					["frequency"] = "weekly",
 					["ownedBy"] = "default_8",
-					["reset"] = {
-						["year"] = 2014,
-						["day"] = 12,
-						["hour"] = 2,
-						["month"] = 11,
-					},
 				},
 			},
 			["194307"] = {
@@ -826,12 +668,6 @@ defaults = {
 					["active"] = true,
 					["frequency"] = "weekly",
 					["ownedBy"] = "default_7",
-					["reset"] = {
-						["year"] = 2014,
-						["day"] = 12,
-						["hour"] = 2,
-						["month"] = 11,
-					},
 				},
 			},
 			["207892"] = {
@@ -841,12 +677,6 @@ defaults = {
 					["active"] = true,
 					["frequency"] = "weekly",
 					["ownedBy"] = "default_15",
-					["reset"] = {
-						["year"] = 2014,
-						["day"] = 12,
-						["hour"] = 2,
-						["month"] = 11,
-					},
 				},
 			},
 			["23035"] = {
@@ -856,12 +686,6 @@ defaults = {
 					["active"] = true,
 					["frequency"] = "daily",
 					["ownedBy"] = "default_11",
-					["reset"] = {
-						["year"] = 2014,
-						["day"] = 8,
-						["hour"] = 2,
-						["month"] = 11,
-					},
 				},
 			},
 			["210160"] = {
@@ -871,12 +695,6 @@ defaults = {
 					["active"] = true,
 					["frequency"] = "weekly",
 					["ownedBy"] = "default_19",
-					["reset"] = {
-						["year"] = 2014,
-						["day"] = 12,
-						["hour"] = 2,
-						["month"] = 11,
-					},
 				},
 			},
 			["12056"] = {
@@ -884,12 +702,7 @@ defaults = {
 					["completionQuantity"] = 1,
 					["name"] = "Baron Geddon",
 					["active"] = true,
-					["reset"] = {
-						["day"] = 12,
-						["hour"] = 2,
-						["year"] = 2014,
-						["month"] = 11,
-					},
+
 					["ownedBy"] = "default_3",
 					["frequency"] = "weekly",
 				},
@@ -901,12 +714,6 @@ defaults = {
 					["active"] = true,
 					["frequency"] = "weekly",
 					["ownedBy"] = "default_18",
-					["reset"] = {
-						["year"] = 2014,
-						["day"] = 12,
-						["hour"] = 2,
-						["month"] = 11,
-					},
 				},
 			},
 			["207894"] = {
@@ -916,12 +723,6 @@ defaults = {
 					["active"] = true,
 					["frequency"] = "weekly",
 					["ownedBy"] = "default_15",
-					["reset"] = {
-						["year"] = 2014,
-						["day"] = 12,
-						["hour"] = 2,
-						["month"] = 11,
-					},
 				},
 			},
 			["16152"] = {
@@ -931,12 +732,6 @@ defaults = {
 					["active"] = true,
 					["frequency"] = "weekly",
 					["ownedBy"] = "default_11",
-					["reset"] = {
-						["year"] = 2014,
-						["day"] = 12,
-						["hour"] = 2,
-						["month"] = 11,
-					},
 				},
 			},
 			["194789"] = {
@@ -946,12 +741,6 @@ defaults = {
 					["active"] = true,
 					["frequency"] = "weekly",
 					["ownedBy"] = "default_7",
-					["reset"] = {
-						["year"] = 2014,
-						["day"] = 12,
-						["hour"] = 2,
-						["month"] = 11,
-					},
 				},
 			},
 			["32857"] = {
@@ -961,12 +750,6 @@ defaults = {
 					["active"] = true,
 					["frequency"] = "weekly",
 					["ownedBy"] = "default_8",
-					["reset"] = {
-						["year"] = 2014,
-						["day"] = 12,
-						["hour"] = 2,
-						["month"] = 11,
-					},
 				},
 			},
 			["33288"] = {
@@ -976,12 +759,6 @@ defaults = {
 					["active"] = true,
 					["frequency"] = "weekly",
 					["ownedBy"] = "default_12",
-					["reset"] = {
-						["year"] = 2014,
-						["day"] = 12,
-						["hour"] = 2,
-						["month"] = 11,
-					},
 				},
 			},
 			["24664"] = {
@@ -991,12 +768,6 @@ defaults = {
 					["active"] = true,
 					["frequency"] = "daily",
 					["ownedBy"] = "default_11",
-					["reset"] = {
-						["year"] = 2014,
-						["day"] = 8,
-						["hour"] = 2,
-						["month"] = 11,
-					},
 				},
 			},
 			["38433"] = {
@@ -1006,12 +777,6 @@ defaults = {
 					["active"] = true,
 					["frequency"] = "weekly",
 					["ownedBy"] = "default_13",
-					["reset"] = {
-						["year"] = 2014,
-						["day"] = 12,
-						["hour"] = 2,
-						["month"] = 11,
-					},
 				},
 			},
 			["195046"] = {
@@ -1021,12 +786,6 @@ defaults = {
 					["active"] = true,
 					["frequency"] = "weekly",
 					["ownedBy"] = "default_7",
-					["reset"] = {
-						["year"] = 2014,
-						["day"] = 12,
-						["hour"] = 2,
-						["month"] = 11,
-					},
 				},
 			},
 			["33113"] = {
@@ -1036,12 +795,6 @@ defaults = {
 					["active"] = true,
 					["frequency"] = "weekly",
 					["ownedBy"] = "default_7",
-					["reset"] = {
-						["year"] = 2014,
-						["day"] = 12,
-						["hour"] = 2,
-						["month"] = 11,
-					},
 				},
 			},
 			["210162"] = {
@@ -1051,12 +804,6 @@ defaults = {
 					["active"] = true,
 					["frequency"] = "weekly",
 					["ownedBy"] = "default_19",
-					["reset"] = {
-						["year"] = 2014,
-						["day"] = 12,
-						["hour"] = 2,
-						["month"] = 11,
-					},
 				},
 			},
 			["210219"] = {
@@ -1066,12 +813,6 @@ defaults = {
 					["active"] = true,
 					["frequency"] = "weekly",
 					["ownedBy"] = "default_18",
-					["reset"] = {
-						["year"] = 2014,
-						["day"] = 12,
-						["hour"] = 2,
-						["month"] = 11,
-					},
 				},
 			},
 			["208967"] = {
@@ -1081,12 +822,6 @@ defaults = {
 					["active"] = true,
 					["frequency"] = "weekly",
 					["ownedBy"] = "default_16",
-					["reset"] = {
-						["year"] = 2014,
-						["day"] = 12,
-						["hour"] = 2,
-						["month"] = 11,
-					},
 				},
 			},
 			["35013"] = {
@@ -1096,12 +831,6 @@ defaults = {
 					["active"] = true,
 					["frequency"] = "weekly",
 					["ownedBy"] = "default_13",
-					["reset"] = {
-						["year"] = 2014,
-						["day"] = 12,
-						["hour"] = 2,
-						["month"] = 11,
-					},
 				},
 			},
 			["33293"] = {
@@ -1111,12 +840,6 @@ defaults = {
 					["active"] = true,
 					["frequency"] = "weekly",
 					["ownedBy"] = "default_7",
-					["reset"] = {
-						["year"] = 2014,
-						["day"] = 12,
-						["hour"] = 2,
-						["month"] = 11,
-					},
 				},
 			},
 			["12057"] = {
@@ -1124,14 +847,17 @@ defaults = {
 					["completionQuantity"] = 1,
 					["name"] = "Garr",
 					["active"] = true,
-					["reset"] = {
-						["day"] = 12,
-						["hour"] = 2,
-						["year"] = 2014,
-						["month"] = 11,
-					},
 					["ownedBy"] = "default_3",
 					["frequency"] = "weekly",
+				},
+			},
+			["26693"] = {
+				["Creature"] = {
+					["completionQuantity"] = 1,
+					["name"] = "Skadi the Ruthless",
+					["active"] = true,
+					["ownedBy"] = "default_12",
+					["frequency"] = "daily",
 				},
 			},
 		},
