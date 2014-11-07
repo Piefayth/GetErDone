@@ -1,3 +1,9 @@
+-- roadmap goals
+-- 
+-- lock button
+-- QUEST HANDLING IN ITS ENTIRITY
+-- 
+
 GetErDone = LibStub("AceAddon-3.0"):NewAddon("GetErDone", "AceEvent-3.0", "AceConsole-3.0")
 
 local AceConfig = LibStub("AceConfig-3.0")
@@ -6,7 +12,7 @@ local AceDB = LibStub("AceDB-3.0")
 local AceDBOptions = LibStub("AceDBOptions-3.0")
 local AceGUI = LibStub("AceGUI-3.0")
 local widgetManager = {}
-frameManager = {} -- TODO reset to local
+local frameManager = {}
 
 local events = 	{
 	{ ["event"] = "LOOT_OPENED", ["callback"] = "handleEventMonster" }, 
@@ -263,7 +269,7 @@ function GetErDone:ensureTrackable(id)
 end
 
 function GetErDone:OnInitialize()
-	AceConfig:RegisterOptionsTable("GetErDone", options, {"ged", "geterdone"}) --TODO: Make these slash commands just open the menu
+	AceConfig:RegisterOptionsTable("GetErDone", options, {"ged", "geterdone"}) 
 	self.db = LibStub("AceDB-3.0"):New("GetErDoneDb")
 
 
@@ -748,7 +754,6 @@ end
 --------------------------------------------------------------------
 
 function GetErDone:UpdateResets()
-	-- TODO null checking
 	for id, types in pairs(self.db.global.trackables) do
 		for type, trackable in pairs(types) do
 			local newReset = self:NextReset(trackable.frequency, self.db.global.region)
@@ -1537,7 +1542,7 @@ end
 
 function GetErDone:redrawUi()
 	local f = CreateFrame("Frame", "GetErDoneTracker", UIParent)
-	f:SetWidth(400)
+	f:SetWidth(250)
 	f:SetHeight(1000)
 	f:SetMovable(true)
 	f:EnableMouse(true)
@@ -1559,17 +1564,28 @@ function GetErDone:redrawUi()
 	titlefontstring:SetHeight(20)
 	titlefontstring:SetWidth(200)
 
-	
+	local closeButton = CreateFrame("Button", "ui_close_button", f)
+	closeButton:SetHeight(30)
+	closeButton:SetWidth(30)
+	closeButton:SetPoint("TOPRIGHT", 5, 0) -- shuffle button to the left so it's on top of the text
+    closeButton:SetNormalTexture("Interface/Buttons/UI-Panel-Button-Up")
+   	closeButton:SetHighlightTexture("Interface/Buttons/UI-Panel-Button-Highlight")
+   	closeButton:SetPushedTexture("Interface/Buttons/UI-Panel-Button-Down")
+	closeButton:RegisterForClicks("LeftButtonUp")
+	closeButton:SetFrameStrata("MEDIUM")
+	closeButton:SetScript("OnClick", function(...) GetErDone:createTestInGameList() end)
+	closeButton:Enable()
+
 
 	local character = self:getServerAwareName(self.db.global.options.uichararacterlistcurrent.name .. self.db.global.options.uichararacterlistcurrent.server)
-	local currentCharacterDisplay = f:CreateFontString("currentCharacter", "ARTWORK", "GameFontNormal") --GameFontWhite
+	local currentCharacterDisplay = f:CreateFontString("currentCharacter", "ARTWORK", "GameFontWhite") --GameFontWhite
 	currentCharacterDisplay:SetText(character)
 	currentCharacterDisplay:SetPoint("TOPLEFT", 0, -20)
 	currentCharacterDisplay:SetHeight(20)
 	currentCharacterDisplay:SetWidth(200)
 	frameManager["currentCharacterDisplay"] = currentCharacterDisplay
 
-	local leftButton = CreateFrame("Button", child_compound_id, f)
+	local leftButton = CreateFrame("Button", "ui_left_button", f)
 	leftButton:SetHeight(20)
 	leftButton:SetWidth(20)
 	leftButton:SetPoint("TOPLEFT", -50, -25) -- shuffle button to the left so it's on top of the text
@@ -1581,10 +1597,10 @@ function GetErDone:redrawUi()
 	leftButton:SetScript("OnClick", function(a, event, b) GetErDone:handleUiCharacterButtonClick(CHARACTER_BUTTON_LEFT) end)
 	leftButton:Enable()
 
-	local rightButton = CreateFrame("Button", child_compound_id, f)
+	local rightButton = CreateFrame("Button", "ui_right_button", f)
 	rightButton:SetHeight(20)
 	rightButton:SetWidth(20)
-	rightButton:SetPoint("TOPRIGHT", -150, -25) -- shuffle button to the left so it's on top of the text
+	rightButton:SetPoint("TOPRIGHT", 0, -25) -- shuffle button to the left so it's on top of the text
     rightButton:SetNormalTexture("Interface/Buttons/UI-Panel-Button-Up")
    	rightButton:SetHighlightTexture("Interface/Buttons/UI-Panel-Button-Highlight")
    	rightButton:SetPushedTexture("Interface/Buttons/UI-Panel-Button-Down")
