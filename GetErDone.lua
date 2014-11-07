@@ -324,7 +324,7 @@ function GetErDone:OnUpdate()
 end
 
 function GetErDone:LoadDefaults()
-	if debug then return
+	if debug then return end
 
 	if self.db.global.defaultsLoaded == nil then
 		self.db.global.compounds = defaults.compounds
@@ -1627,17 +1627,24 @@ function GetErDone:generateIngameCompoundTree(compoundid)
 
 	for k, child_compound_id in pairs(children) do
 		if self:getTreeDisplayCharacter(child_compound_id, nil, false, character) then
-			local fontType = self.db.global.compounds[child_compound_id].displayChildren and "GameFontNormal" or "GameFontWhite"
-			local tempString = frameManager["f"]:CreateFontString(child_compound_id, "ARTWORK", "GameFontNormal")
+			local displayChildren = self.db.global.compounds[child_compound_id].displayChildren
+			local fontType = displayChildren and "GameFontNormal" or "GameFontWhite"
+			local tempString = frameManager["f"]:CreateFontString(child_compound_id, "ARTWORK", fontType)
 			tempString:SetText(self:getIndent(self:compoundNumParents(child_compound_id)) .. self.db.global.compounds[child_compound_id].name)
-			tempString:SetPoint("BOTTOM", frameManager["previousString"], 0, -20, 0)
-			tempString:SetHeight(20)
+			if displayChildren then
+				tempString:SetPoint("BOTTOM", frameManager["previousString"], 0, -20, 0)
+				tempString:SetHeight(20)
+			else
+				tempString:SetPoint("BOTTOM", frameManager["previousString"], 0, -15, 0)
+				tempString:SetHeight(15)
+				tempString:SetShadowOffset(1,-1)
+			end
 			tempString:SetWidth(300)
 			tempString:SetJustifyH("LEFT")
 
 			frameManager["previousString"] = tempString
 			-- create the invisible button
-			if self.db.global.compounds[child_compound_id].displayChildren then
+			if displayChildren then
 				local button = CreateFrame("Button", child_compound_id, frameManager.f)
 				button:SetHeight(30)
 	        	button:SetNormalTexture("Interface\\Addons\\GetErDone\\textures\\clear.tga", "BLEND")
