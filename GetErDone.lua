@@ -97,6 +97,7 @@ EVENT_LEFT_BUTTON = "LeftButton"
 EVENT_RIGHT_BUTTON = "RightButton"
 CHARACTER_BUTTON_LEFT = 1
 CHARACTER_BUTTON_RIGHT = 2
+COMPOUND_TREE_ROOT_ELEMENT = "top_level"
 debugMode = true -- TODO change to false
 
 
@@ -324,7 +325,7 @@ function GetErDone:OnUpdate()
 end
 
 function GetErDone:LoadDefaults()
-	if debug then return end
+	--if debug then return end TODO uncomment for release
 
 	if self.db.global.defaultsLoaded == nil then
 		self.db.global.compounds = defaults.compounds
@@ -1596,7 +1597,7 @@ function GetErDone:redrawUi()
 	frameManager["f"] = f
 	frameManager["previousString"] = currentCharacterDisplay
 
-	self:generateIngameCompoundTree("")
+	self:generateIngameCompoundTree(COMPOUND_TREE_ROOT_ELEMENT)
 end
 
 function GetErDone:saveUiPosition()
