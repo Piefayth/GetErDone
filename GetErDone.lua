@@ -257,17 +257,6 @@ function GetErDone:updateOwner(ownerId, childId, childType)
 	end
 end
 
-function GetErDone:updateChild(compound_id, child_id, child_type)
-	if child_type == nil then -- compound
-		if self:IsNullOrEmpty(self.db.global.compounds[child_id]) then error("updateChild: null child") end
-		self.db.global.compounds[child_id].ownedBy = compound_id
-	else
-		if self:IsNullOrEmpty(self.db.global.trackables[id]) or self:IsNullOrEmpty(self.db.global.trackables[id][type]) then
-			self:AddTrackable(child_id, child_type, self:LoadTrackableName(child_id, child_type), compound_id, "", CHARACTERS_ALL, 1)
-		end
-	end
-end
-
 function GetErDone:ensureTrackable(id)
 	if self.db.global.trackables[id] == nil then self.db.global.trackables[id] = {} end
 end
@@ -288,15 +277,23 @@ function GetErDone:OnInitialize()
 end
 
 function GetErDone:OnEnable()
-	name, server = UnitFullName("player")
+	local name, server = UnitFullName("player")
+	if self.db.global.characters == nil then self.db.global.characters = {} end
 	if self.db.global.characters[name .. server] == nil then 
 		self.db.global.characters[name .. server] = {["name"] = name, ["server"] = server}
 	end
 	self.db.global.character = name .. server
 	---First Time Setup l---
 	if self.db.global.trackables == nil then self.db.global.trackables = {} end
-	if self.db.global.characters == nil then self.db.global.characters = {} end
-	if self.db.global.compounds == nil then self.db.global.compounds = {} end
+	if self.db.global.compounds == nil then self.db.global.compounds = { ["top_level"] = {
+				["name"] = "Get Er Done",
+				["active"] = true,
+				["childCompletionQuantity"] = 0,
+				["displayChildren"] = true,
+				["ownedBy"] = "",
+				["comprisedOf"] = {
+				},
+			},} end
 	if self.db.global.options == nil then self.db.global.options = {} end
 	if self.db.global.options.quantity == nil then self.db.global.options.quantity = "" end
 	if self.db.global.options.compoundquantity == nil then self.db.global.options.compoundquantity = "" end
@@ -310,16 +307,15 @@ function GetErDone:OnEnable()
 	if self.db.global.region == nil then self.db.global.region = GetCurrentRegion() end
 	if self.db.global.completionCache == nil then self.db.global.completionCache = {} end
 	if self.db.global.hiddenCompounds == nil then self.db.global.hiddenCompounds = {} end
-
 	
+
 
 	self:generateUiCharacterList()
 	self:registerHandlers()
-	--self:LoadDefaults()
+	self:LoadDefaults()
 	self:UpdateResets()
 	self:InvalidateCompletionCache(COMPLETION_CACHE_ALL_CHARACTERS)
 	self:invalidateAceTree()
-	--self:collapseUIToTopLevel()
 	self:createTestInGameList()
 end
 
@@ -328,21 +324,19 @@ function GetErDone:OnUpdate()
 end
 
 function GetErDone:LoadDefaults()
+	if debug then return
+
 	if self.db.global.defaultsLoaded == nil then
-		for id, type in pairs(defaults.trackables) do
-			local trackable = defaults[type]
-			self:AddTrackable(id, type, self:LoadTrackableName(id, type), nil, trackable.frequency, CHARACTERS_ALL, trackable.quantity)
+		self.db.global.compounds = defaults.compounds
+		self.db.global.trackables = defaults.trackables
+
+		for id, typeTree in pairs(self.db.global.trackables) do
+			for type, trackable in pairs(typeTree) do
+				trackable["characters"] = { [self.db.global.character] = 0 }
+			end
 		end
-		for compound_id, compound in pairs(defaults.compounds) do
-			self.db.global.options.newCompoundName = compound.name
-			self.db.global.options.optCompound = compound.ownedBy
-			self.db.global.options.compoundchildren = compound.displayChildren
-			self.db.global.options.compoundquantity = compound.childCompletionQuantity
-			self.db.global.options.compoundId = compound_id
-			self:addCompound()
-			self.db.global.compounds[compound_id].comprisedOf = compound.comprisedOf
-		end
-	self.db.global.defaultsloaded = "loaded"
+
+		self.db.global.defaultsloaded = "loaded"
 	end
 end
 			
@@ -1238,8 +1232,6 @@ end
 
 function GetErDone:submitTrackableNameEdit(widget, event, text)
 	self.db.global.options.trackablename = text
-	print(text)
-	print(event)
 	widget:SetText(text)
 	GetErDone:buttonCheck("trackable")
 end
@@ -1304,7 +1296,6 @@ function GetErDone:createIngameList()
 						self.db.global.options.frequency,
 						self.db.global.options.character, -- TODO multiple name selection
 						self.db.global.options.quantity)
-					self:invalidateAceTree()
 					mainTree:SetTree(self:getAceTree(false))
 					widgetManager["addTrackableButton"]:SetDisabled(true)
 				end)
@@ -1325,7 +1316,6 @@ function GetErDone:createIngameList()
 					self.db.global.options.frequency,
 					self.db.global.options.character, -- TODO multiple name selection
 					self.db.global.options.quantity)
-					self:invalidateAceTree()
 					mainTree:SetTree(self:getAceTree(false))
 					widgetManager["addTrackableButton"]:SetDisabled(true)
 				end)
@@ -1637,6 +1627,7 @@ function GetErDone:generateIngameCompoundTree(compoundid)
 
 	for k, child_compound_id in pairs(children) do
 		if self:getTreeDisplayCharacter(child_compound_id, nil, false, character) then
+			local fontType = self.db.global.compounds[child_compound_id].displayChildren and "GameFontNormal" or "GameFontWhite"
 			local tempString = frameManager["f"]:CreateFontString(child_compound_id, "ARTWORK", "GameFontNormal")
 			tempString:SetText(self:getIndent(self:compoundNumParents(child_compound_id)) .. self.db.global.compounds[child_compound_id].name)
 			tempString:SetPoint("BOTTOM", frameManager["previousString"], 0, -20, 0)
@@ -1644,39 +1635,38 @@ function GetErDone:generateIngameCompoundTree(compoundid)
 			tempString:SetWidth(300)
 			tempString:SetJustifyH("LEFT")
 
-			-- create the invisible button
-			local button = CreateFrame("Button", child_compound_id, frameManager.f)
-			button:SetHeight(30)
-        	button:SetNormalTexture("Interface\\Addons\\GetErDone\\textures\\clear.tga", "BLEND")
-        	button:SetHighlightTexture("Interface\\Addons\\GetErDone\\textures\\highlight.tga", "BLEND")
-        	button:SetPushedTexture("Interface\\Addons\\GetErDone\\textures\\highlight.tga", "BLEND")
-			button:SetWidth(tempString:GetStringWidth() * 2)
-			local point, relativeTo, relativePoint, xOfs, yOfs = tempString:GetPoint()
-			button:SetPoint("TOPLEFT", relativeTo, relativePoint, 0 - (tempString:GetWidth() / 2) - 15, 4) -- shuffle button to the left so it's on top of the text
-			button:SetBackdropColor(0, 0, 0, 0) -- seethrough
-			button:SetBackdropBorderColor(0, 0, 0, 0) -- seethrough
-			button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-			button:SetFrameStrata("MEDIUM")
-			button:SetScript("OnClick", function(a, event, b) GetErDone:handleUiButtonClick(event, child_compound_id) end)
-			button:SetAlpha(0.5)
-			button:Enable()
-
 			frameManager["previousString"] = tempString
+			-- create the invisible button
+			if self.db.global.compounds[child_compound_id].displayChildren then
+				local button = CreateFrame("Button", child_compound_id, frameManager.f)
+				button:SetHeight(30)
+	        	button:SetNormalTexture("Interface\\Addons\\GetErDone\\textures\\clear.tga", "BLEND")
+	        	button:SetHighlightTexture("Interface\\Addons\\GetErDone\\textures\\highlight.tga", "BLEND")
+	        	button:SetPushedTexture("Interface\\Addons\\GetErDone\\textures\\highlight.tga", "BLEND")
+				button:SetWidth(tempString:GetStringWidth() * 2)
+				local point, relativeTo, relativePoint, xOfs, yOfs = tempString:GetPoint()
+				button:SetPoint("TOPLEFT", relativeTo, relativePoint, 0 - (tempString:GetWidth() / 2) - 15, 4) -- shuffle button to the left so it's on top of the text
+				button:SetBackdropColor(0, 0, 0, 0) -- seethrough
+				button:SetBackdropBorderColor(0, 0, 0, 0) -- seethrough
+				button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+				button:SetFrameStrata("MEDIUM")
+				button:SetScript("OnClick", function(a, event, b) GetErDone:handleUiButtonClick(event, child_compound_id) end)
+				button:SetAlpha(0.5)
+				button:Enable()
 
-			for kk, child_id in pairs(self.db.global.compounds[child_compound_id].comprisedOf) do
-				if not self:isCompoundId(child_id) and self:uiShowCompound(child_compound_id) then
-					if self:getTreeDisplayCharacter(child_id.id, child_id.type, false, character) then
-						tempString = frameManager["f"]:CreateFontString(child_compound_id, "ARTWORK", "GameFontWhite")
-						tempString:SetText(self:getIndent(self:compoundNumParents(child_compound_id))  .. NESTING_INDENT .. 
-							self.db.global.trackables[child_id.id][child_id.type].name .. " (" ..
-							self.db.global.trackables[child_id.id][child_id.type].characters[self.db.global.character] ..
-							"/" ..self.db.global.trackables[child_id.id][child_id.type].completionQuantity .. ")" or "test")
-						tempString:SetPoint("BOTTOM", frameManager["previousString"], 0, -15, 0)
-						tempString:SetHeight(15)
-						tempString:SetWidth(300)
-						tempString:SetJustifyH("LEFT")
-						tempString:SetShadowOffset(1,-1)
-						frameManager["previousString"] = tempString
+
+				for kk, child_id in pairs(self.db.global.compounds[child_compound_id].comprisedOf) do
+					if not self:isCompoundId(child_id) and self:uiShowCompound(child_compound_id) then
+						if self:getTreeDisplayCharacter(child_id.id, child_id.type, false, character) then
+							tempString = frameManager["f"]:CreateFontString(child_compound_id, "ARTWORK", "GameFontWhite")
+							tempString:SetText(self:createUiTrackableText(child_compound_id, child_id.id, child_id.type, character))
+							tempString:SetPoint("BOTTOM", frameManager["previousString"], 0, -15, 0)
+							tempString:SetHeight(15)
+							tempString:SetWidth(300)
+							tempString:SetJustifyH("LEFT")
+							tempString:SetShadowOffset(1,-1)
+							frameManager["previousString"] = tempString
+						end
 					end
 				end
 			end
@@ -1685,6 +1675,16 @@ function GetErDone:generateIngameCompoundTree(compoundid)
 			end
 		end
 	end
+end
+
+function GetErDone:createUiTrackableText(child_compound_id, id, type, character)
+	local completionText = ""
+	local trackable = self.db.global.trackables[id][type]
+
+	if trackable.completionQuantity > 1 then
+		completionText = string.format(" (%i/%i)", trackable.characters[character], trackable.completionQuantity)
+	end
+	return self:getIndent(self:compoundNumParents(child_compound_id) + 1) .. trackable.name .. completionText
 end
 
 function GetErDone:updateUI()
