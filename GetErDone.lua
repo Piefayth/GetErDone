@@ -884,7 +884,8 @@ function GetErDone:deleteCompound(compound_id)
 	if parent ~= nil then
 		for i, v in ipairs(parent.comprisedOf) do
 			if v == compound_id then
-				self.db.global.compounds[compound.ownedBy].comprisedOf[i] = nil
+				table.remove(self.db.global.compounds[compound.ownedBy].comprisedOf, i)
+				break
 			end
 		end
 	end
