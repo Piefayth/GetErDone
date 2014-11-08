@@ -642,8 +642,10 @@ function GetErDone:CompleteTrackable(id, type, status)
 
 	self:debug("Completing trackable " .. id .. " with status: " .. status)
 	if status == COMPLETE_INCREMENT then
-		if trackable.characters[character] < trackable.completionQuantity then
-			trackable.characters[character] = trackable.characters[character] + 1
+		if trackable.characters[character] ~= nil then
+			if trackable.characters[character] < trackable.completionQuantity then
+				trackable.characters[character] = trackable.characters[character] + 1
+			end
 		end
 		self:InvalidateCompletionCache(character)
 	elseif status == COMPLETE_ZERO then
