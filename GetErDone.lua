@@ -895,7 +895,7 @@ function GetErDone:deleteTrackable(id, type)
 	if self.db.global.trackables[id][type].ownedBy ~= "" then
 		for i,v in ipairs(self.db.global.compounds[self.db.global.trackables[id][type].ownedBy].comprisedOf) do
 			if v["id"] == id and v["type"] == type then
-				self.db.global.compounds[self.db.global.trackables[id][type].ownedBy].comprisedOf[i] = nil
+				table.remove(self.db.global.compounds[self.db.global.trackables[id][type].ownedBy].comprisedOf, i)
 				break
 			end
 		end
@@ -1315,13 +1315,14 @@ function GetErDone:createIngameList()
 				function(widget, event, text) 
 					self:delete(id, type)
 					self:AddTrackable(
-					self.db.global.options.trackableID, 
-					self.db.global.options.typechoice, 
-					self.db.global.options.trackablename,
-					self.db.global.options.optCompound,
-					self.db.global.options.frequency,
-					self.db.global.options.character, -- TODO multiple name selection
-					self.db.global.options.quantity)
+						self.db.global.options.trackableID, 
+						self.db.global.options.typechoice, 
+						self.db.global.options.trackablename,
+						self.db.global.options.optCompound,
+						self.db.global.options.frequency,
+						self.db.global.options.character, -- TODO multiple name selection
+						self.db.global.options.quantity
+					)
 					mainTree:SetTree(self:getAceTree(false))
 					widgetManager["addTrackableButton"]:SetDisabled(true)
 					self:populateTrackableFields(id, type)
@@ -1344,7 +1345,6 @@ function GetErDone:createIngameList()
 	end
 
 	function GetErDone:clearTrackableFields()
-		self.db.global.options.optTrackable = ""
 		widgetManager["trackableSelectionLabel"]:SetText("Current Item: ")
 		widgetManager["trackableID"]:SetText("")
 		widgetManager["trackableName"]:SetText("")
@@ -1605,7 +1605,6 @@ function GetErDone:redrawUi()
 	closeButton:RegisterForClicks("LeftButtonUp")
 	closeButton:SetFrameStrata("MEDIUM")
 	closeButton:SetScript("OnClick", function(...) 
-		print(UI_CLOSED_STRING)
 		GetErDone:createTestInGameList() 
 	end)
 	closeButton:Enable()
