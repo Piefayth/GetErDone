@@ -42,10 +42,10 @@ options = {
 						end,
 						hidden = true,
 					},
-					testtree = {
+					options = {
 						order = 98,
 						type = "execute",
-						name = "testtree",
+						name = "options",
 						desc = "",
 						func = function() GetErDone:createIngameList() end,
 						hidden = true,
@@ -245,6 +245,7 @@ function GetErDone:AddTrackable(id, type, name, owner, frequency, characters, qu
 
 	widgetManager["trackableID"]:SetText("")
 	widgetManager["trackableQuantity"]:SetText("")
+	widgetManager["trackableName"]:SetText("")
 end
 
 
@@ -275,7 +276,7 @@ function GetErDone:OnInitialize()
 
 	
 	self.optionsFrames = {}
-	self.optionsFrames.general = AceConfigDialog:AddToBlizOptions("GetErDone", nil, nil, "general")
+	--self.optionsFrames.general = AceConfigDialog:AddToBlizOptions("GetErDone", nil, nil, "general")
 
 
 	--Event Registry--
@@ -1166,7 +1167,7 @@ function GetErDone:buttonCheck(t)
 			widgetManager["buttonCompound"]:SetDisabled(false)
 		end
 	elseif t == "trackable" then
-		if self.db.global.options.trackableid ~= "" and
+		if self.db.global.options.trackableID ~= "" and
 			self.db.global.options.typechoice ~= "" and
 			self.db.global.options.frequency ~= "" and
 			self.db.global.options.character ~= "" and
@@ -1289,23 +1290,7 @@ function GetErDone:createIngameList()
     			self.db.global.options.optCompound = self.db.global.options.treeMouseover
     			widgetManager["compoundSelectionLabel"]:SetText("Current Group: " .. self.db.global.compounds[self.db.global.options.optCompound].name)
     			widgetManager["deleteCompoundButton"]:SetDisabled(false)
-    			self.db.global.options.optTrackable = ""
-    			widgetManager["trackableSelectionLabel"]:SetText("Current Item: ")
-    			widgetManager["deleteTrackableButton"]:SetDisabled(true)
-    			self.db.global.options.optTrackable = {}
-    			widgetManager["addTrackableButton"]:SetText("Add Item")
-				widgetManager["addTrackableButton"]:SetCallback("OnClick", 
-				function(widget, event) self:AddTrackable(
-						self.db.global.options.trackableID, 
-						self.db.global.options.typechoice, 
-						self.db.global.options.trackablename,
-						self.db.global.options.optCompound,
-						self.db.global.options.frequency,
-						self.db.global.options.character, -- TODO multiple name selection
-						self.db.global.options.quantity)
-					mainTree:SetTree(self:getAceTree(false))
-					widgetManager["addTrackableButton"]:SetDisabled(true)
-				end)
+    			self:clearTrackableFields()
 			elseif string.find(self.db.global.options.treeMouseover, ':') then
 				local id, type = self:fromMergedId(self.db.global.options.treeMouseover)
 				self.db.global.options.optTrackable = {["id"] = id, ["type"] = type}
@@ -1325,19 +1310,51 @@ function GetErDone:createIngameList()
 					self.db.global.options.quantity)
 					mainTree:SetTree(self:getAceTree(false))
 					widgetManager["addTrackableButton"]:SetDisabled(true)
+					self:populateTrackableFields(id, type)
 				end)
-				widgetManager["trackableFrequency"]:SetValue(self.db.global.trackables[id][type].frequency)
-				self.db.global.options.frequency = self.db.global.trackables[id][type].frequency
-				widgetManager["trackableType"]:SetValue(type)
-				self.db.global.options.typechoice = type
-				widgetManager["trackableID"]:SetText(id)
-				self.db.global.options.trackableID = id
-				widgetManager["trackableName"]:SetText(self.db.global.trackables[id][type].name)
-				self.db.global.options.trackablename = self.db.global.trackables[id][type].name
-				widgetManager["trackableQuantity"]:SetText(self.db.global.trackables[id][type].completionQuantity)
-				self.db.global.options.quantity = self.db.global.trackables[id][type].completionQuantity
+				self:populateTrackableFields(id, type)
 			end
 		end)
+
+	function GetErDone:populateTrackableFields(id, type)
+		widgetManager["trackableFrequency"]:SetValue(self.db.global.trackables[id][type].frequency)
+		self.db.global.options.frequency = self.db.global.trackables[id][type].frequency
+		widgetManager["trackableType"]:SetValue(type)
+		self.db.global.options.typechoice = type
+		widgetManager["trackableID"]:SetText(id)
+		self.db.global.options.trackableID = id
+		widgetManager["trackableName"]:SetText(self.db.global.trackables[id][type].name)
+		self.db.global.options.trackablename = self.db.global.trackables[id][type].name
+		widgetManager["trackableQuantity"]:SetText(self.db.global.trackables[id][type].completionQuantity)
+		self.db.global.options.quantity = self.db.global.trackables[id][type].completionQuantity
+	end
+
+	function GetErDone:clearTrackableFields()
+		self.db.global.options.optTrackable = ""
+		widgetManager["trackableSelectionLabel"]:SetText("Current Item: ")
+		widgetManager["trackableID"]:SetText("")
+		widgetManager["trackableName"]:SetText("")
+		widgetManager["trackableQuantity"]:SetText("")
+		self.db.global.options.trackableID = ""
+		self.db.global.options.trackablename = ""
+		self.db.global.options.quantity = ""
+		widgetManager["addTrackableButton"]:SetDisabled(true)
+		widgetManager["deleteTrackableButton"]:SetDisabled(true)
+		self.db.global.options.optTrackable = {}
+		widgetManager["addTrackableButton"]:SetText("Add Item")
+		widgetManager["addTrackableButton"]:SetCallback("OnClick", 
+		function(widget, event) self:AddTrackable(
+				self.db.global.options.trackableID, 
+				self.db.global.options.typechoice, 
+				self.db.global.options.trackablename,
+				self.db.global.options.optCompound,
+				self.db.global.options.frequency,
+				self.db.global.options.character, -- TODO multiple name selection
+				self.db.global.options.quantity)
+			mainTree:SetTree(self:getAceTree(false))
+			widgetManager["addTrackableButton"]:SetDisabled(true)
+		end)
+	end
     ---Copy Pasted Shit---
 
 	local newCompoundGroup = AceGUI:Create("InlineGroup")
@@ -1473,7 +1490,7 @@ function GetErDone:createIngameList()
 			self:updateUI()
 			self:invalidateAceTree()
 			mainTree:SetTree(self:getAceTree(false))
-			trackableSelectionLabel:SetText("Current Item: ")
+			self:clearTrackableFields()
 		end)
 
 	addTrackableButton:SetDisabled(true)
@@ -1583,6 +1600,7 @@ function GetErDone:redrawUi()
 	currentCharacterDisplay:SetPoint("TOPLEFT", 0, -20)
 	currentCharacterDisplay:SetHeight(20)
 	currentCharacterDisplay:SetWidth(200)
+	currentCharacterDisplay:SetShadowOffset(1,-1)
 	frameManager["currentCharacterDisplay"] = currentCharacterDisplay
 
 	local leftButton = CreateFrame("Button", "ui_left_button", f)
