@@ -1568,7 +1568,7 @@ function GetErDone:redrawUi()
 	if self.db.global.options.uipositionx ~= nil and self.db.global.options.uipositiony ~= nil and self.db.global.options.uipositionpoint ~= nil then
 		f:SetPoint(self.db.global.options.uipositionpoint, self.db.global.options.uipositionx, self.db.global.options.uipositiony)
 	else
-		f:SetPoint("LEFT", 0, 0)
+		f:SetPoint("CENTER", 0, 0)
 	end
 
 	local frameTitle = f:CreateTitleRegion()
