@@ -1121,9 +1121,11 @@ end
 
 
 function GetErDone:getCharacters()
-	local t = {["All"] = CHARACTERS_ALL}
+	local t = {[CHARACTERS_ALL] = "All Characters"}
 	for k, v in pairs(GetErDone:GetOption("characters")) do
-		t[k] = v["name"] .. " - " .. v["server"]
+		if not self:isNameIgnored(v.name .. v.server) then
+			t[k] = v["name"] .. " - " .. v["server"]
+		end
 	end
 	return t
 end
@@ -1286,6 +1288,8 @@ function GetErDone:populateCompoundEdit(widget)
 	GetErDone:buttonCheck("compound")
 end
 
+local charDropdownList = {}
+
 function GetErDone:createIngameList()
     local f = AceGUI:Create("Frame")
     f:SetCallback("OnClose",function(widget) AceGUI:Release(widget) end)
@@ -1322,7 +1326,7 @@ function GetErDone:createIngameList()
 						self.db.global.options.trackablename,
 						self.db.global.options.optCompound,
 						self.db.global.options.frequency,
-						self.db.global.options.character, -- TODO multiple name selection
+						charDropdownList,
 						self.db.global.options.quantity
 					)
 					mainTree:SetTree(self:getAceTree(false))
@@ -1365,7 +1369,7 @@ function GetErDone:createIngameList()
 				self.db.global.options.trackablename,
 				self.db.global.options.optCompound,
 				self.db.global.options.frequency,
-				self.db.global.options.character, -- TODO multiple name selection
+				charDropdownList,
 				self.db.global.options.quantity)
 			mainTree:SetTree(self:getAceTree(false))
 			widgetManager["addTrackableButton"]:SetDisabled(true)
@@ -1443,13 +1447,14 @@ function GetErDone:createIngameList()
 
 	addTrackableButton:SetText("Add ID")
 	addTrackableButton:SetCallback("OnClick", 
-		function(widget, event) self:AddTrackable(
+		function(widget, event) 
+			self:AddTrackable(
 				self.db.global.options.trackableID, 
 				self.db.global.options.typechoice, 
 				self.db.global.options.trackablename,
 				self.db.global.options.optCompound,
 				self.db.global.options.frequency,
-				self.db.global.options.character, -- TODO multiple name selection
+				charDropdownList,
 				self.db.global.options.quantity
 			)
 			self:invalidateAceTree()
@@ -1487,8 +1492,15 @@ function GetErDone:createIngameList()
 	trackableFrequency:SetValue(self.db.global.options.frequency)
 
 	trackableCharacter:SetList(self:getCharacters())
-	trackableCharacter:SetCallback("OnValueChanged", function(widget, event, key) self:getTrackableCharacterDropdown(widget, event, key) end)
+	trackableCharacter:SetCallback("OnValueChanged", function(widget, event, key, checked) 
+		if checked then
+			charDropdownList[key] = key
+		else
+			charDropdownList[key] = nil
+		end
+	end)
 	trackableCharacter:SetLabel("Character")
+	trackableCharacter:SetMultiselect(true)
 	trackableCharacter:SetValue(self.db.global.options.character)
 
 	trackableQuantity:SetCallback("OnEnterPressed", function(widget, event, text) self:getTrackableQuantity(widget, event, text) end)
@@ -1510,6 +1522,7 @@ function GetErDone:createIngameList()
 		end)
 
 	addTrackableButton:SetDisabled(true)
+
 
 
 	mainTree:AddChild(newCompoundGroup)
