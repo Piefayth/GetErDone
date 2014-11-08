@@ -63,7 +63,10 @@ options = {
 						type = "execute",
 						name = "ui",
 						desc = "",
-						func = function() GetErDone:createTestInGameList() end,
+						func = function() 
+							GetErDone.db.global.options.showui = true
+							GetErDone:createTestInGameList()
+						end,
 					},
 				},
 			},
@@ -104,6 +107,7 @@ EVENT_RIGHT_BUTTON = "RightButton"
 CHARACTER_BUTTON_LEFT = 1
 CHARACTER_BUTTON_RIGHT = 2
 COMPOUND_TREE_ROOT_ELEMENT = "top_level"
+UI_CLOSED_STRING = "Get Er Done UI closed. To show again, type\n/ged ui"
 debugMode = true -- TODO change to false
 
 
@@ -312,6 +316,7 @@ function GetErDone:OnEnable()
 	if self.db.global.options.ignoredNames == nil then self.db.global.options.ignoredNames = {} end
 	if self.db.global.options.compoundchildren == nil then self.db.global.options.compoundchildren = true end
 	if self.db.global.options.uichararacterlistcurrent == nil then self.db.global.options.uichararacterlistcurrent = self.db.global.characters[self.db.global.character] end
+	if self.db.global.options.showui == nil then self.db.global.options.showui = true end
 	if self.db.global.region == nil then self.db.global.region = GetCurrentRegion() end
 	if self.db.global.completionCache == nil then self.db.global.completionCache = {} end
 	if self.db.global.hiddenCompounds == nil then self.db.global.hiddenCompounds = {} end
@@ -334,7 +339,7 @@ end
 function GetErDone:LoadDefaults()
 	--if debug then return end TODO uncomment for release
 
-	if self.db.global.defaultsLoaded == nil then
+	if self.db.global.defaultsloaded == nil then
 		self.db.global.compounds = defaults.compounds
 		self.db.global.trackables = defaults.trackables
 
@@ -859,14 +864,15 @@ function GetErDone:delete(id, type)
 	else
 		self:deleteTrackable(id, type)
 	end
+	self:InvalidateCompletionCache(COMPLETION_CACHE_ALL_CHARACTERS)
 end
 
 function GetErDone:deleteCompound(compound_id)
 	local compound = self.db.global.compounds[compound_id]
 	if compound == nil then return end
 	local children = compound.comprisedOf
-	if children ~= "" then
-		for k, child_id in pairs(children) do
+	if children ~= "" and children ~= nil then
+		for k, child_id in ipairs(children) do
 			if self:isCompoundId(child_id) then
 				self:deleteCompound(child_id)
 			else
@@ -874,7 +880,14 @@ function GetErDone:deleteCompound(compound_id)
 			end
 		end
 	end
-
+	local parent = self.db.global.compounds[compound.ownedBy]
+	if parent ~= nil then
+		for i, v in ipairs(parent.comprisedOf) do
+			if v == compound_id then
+				self.db.global.compounds[compound.ownedBy].comprisedOf[i] = nil
+			end
+		end
+	end
 	self.db.global.compounds[compound_id] = nil
 end
 
@@ -882,7 +895,8 @@ function GetErDone:deleteTrackable(id, type)
 	if self.db.global.trackables[id][type].ownedBy ~= "" then
 		for i,v in ipairs(self.db.global.compounds[self.db.global.trackables[id][type].ownedBy].comprisedOf) do
 			if v["id"] == id and v["type"] == type then
-				table.remove(self.db.global.compounds[self.db.global.trackables[id][type].ownedBy].comprisedOf, i)
+				self.db.global.compounds[self.db.global.trackables[id][type].ownedBy].comprisedOf[i] = nil
+				break
 			end
 		end
 	end
@@ -1571,7 +1585,7 @@ function GetErDone:redrawUi()
 	if self.db.global.options.uipositionx ~= nil and self.db.global.options.uipositiony ~= nil and self.db.global.options.uipositionpoint ~= nil then
 		f:SetPoint(self.db.global.options.uipositionpoint, self.db.global.options.uipositionx, self.db.global.options.uipositiony)
 	else
-		f:SetPoint("LEFT", 0, 0)
+		f:SetPoint("CENTER", 0, 0)
 	end
 
 	local frameTitle = f:CreateTitleRegion()
@@ -1582,15 +1596,18 @@ function GetErDone:redrawUi()
 	titlefontstring:SetWidth(200)
 
 	local closeButton = CreateFrame("Button", "ui_close_button", f)
-	closeButton:SetHeight(30)
-	closeButton:SetWidth(30)
-	closeButton:SetPoint("TOPRIGHT", 5, 0) -- shuffle button to the left so it's on top of the text
-    closeButton:SetNormalTexture("Interface/Buttons/UI-Panel-Button-Up")
-   	closeButton:SetHighlightTexture("Interface/Buttons/UI-Panel-Button-Highlight")
-   	closeButton:SetPushedTexture("Interface/Buttons/UI-Panel-Button-Down")
+	closeButton:SetHeight(13)
+	closeButton:SetWidth(13)
+	closeButton:SetPoint("TOPRIGHT", -1, 0) -- shuffle button to the left so it's on top of the text
+    closeButton:SetNormalTexture("Interface\\Addons\\GetErDone\\textures\\close.tga", "BLEND")
+   	closeButton:SetHighlightTexture("Interface\\Addons\\GetErDone\\textures\\close_highlight.tga", "BLEND")
+   	closeButton:SetPushedTexture("Interface\\Addons\\GetErDone\\textures\\close_highlight.tga", "BLEND")
 	closeButton:RegisterForClicks("LeftButtonUp")
 	closeButton:SetFrameStrata("MEDIUM")
-	closeButton:SetScript("OnClick", function(...) GetErDone:createTestInGameList() end)
+	closeButton:SetScript("OnClick", function(...) 
+		print(UI_CLOSED_STRING)
+		GetErDone:createTestInGameList() 
+	end)
 	closeButton:Enable()
 
 
@@ -1604,24 +1621,24 @@ function GetErDone:redrawUi()
 	frameManager["currentCharacterDisplay"] = currentCharacterDisplay
 
 	local leftButton = CreateFrame("Button", "ui_left_button", f)
-	leftButton:SetHeight(20)
-	leftButton:SetWidth(20)
-	leftButton:SetPoint("TOPLEFT", -50, -25) -- shuffle button to the left so it's on top of the text
-    leftButton:SetNormalTexture("Interface/Buttons/UI-Panel-Button-Up")
-   	leftButton:SetHighlightTexture("Interface/Buttons/UI-Panel-Button-Highlight")
-   	leftButton:SetPushedTexture("Interface/Buttons/UI-Panel-Button-Down")
+	leftButton:SetPoint("TOPLEFT", -40, -25) -- shuffle button to the left so it's on top of the text
+    leftButton:SetNormalTexture("Interface\\Addons\\GetErDone\\textures\\left.tga", "BLEND")
+   	leftButton:SetHighlightTexture("Interface\\Addons\\GetErDone\\textures\\left_highlight.tga", "BLEND")
+   	leftButton:SetPushedTexture("Interface\\Addons\\GetErDone\\textures\\left_highlight.tga", "BLEND")
+	leftButton:SetHeight(15)
+	leftButton:SetWidth(15)
 	leftButton:RegisterForClicks("LeftButtonUp")
 	leftButton:SetFrameStrata("MEDIUM")
 	leftButton:SetScript("OnClick", function(a, event, b) GetErDone:handleUiCharacterButtonClick(CHARACTER_BUTTON_LEFT) end)
 	leftButton:Enable()
 
 	local rightButton = CreateFrame("Button", "ui_right_button", f)
-	rightButton:SetHeight(20)
-	rightButton:SetWidth(20)
-	rightButton:SetPoint("TOPRIGHT", 0, -25) -- shuffle button to the left so it's on top of the text
-    rightButton:SetNormalTexture("Interface/Buttons/UI-Panel-Button-Up")
-   	rightButton:SetHighlightTexture("Interface/Buttons/UI-Panel-Button-Highlight")
-   	rightButton:SetPushedTexture("Interface/Buttons/UI-Panel-Button-Down")
+	rightButton:SetPoint("TOPRIGHT", -1, -25) -- shuffle button to the left so it's on top of the text
+    rightButton:SetNormalTexture("Interface\\Addons\\GetErDone\\textures\\right.tga", "BLEND")
+   	rightButton:SetHighlightTexture("Interface\\Addons\\GetErDone\\textures\\right_highlight.tga", "BLEND")
+   	rightButton:SetPushedTexture("Interface\\Addons\\GetErDone\\textures\\right_highlight.tga", "BLEND")
+	rightButton:SetHeight(15)
+	rightButton:SetWidth(15)
 	rightButton:RegisterForClicks("LeftButtonUp")
 	rightButton:SetFrameStrata("MEDIUM")
 	rightButton:SetScript("OnClick", function(a, event, b) GetErDone:handleUiCharacterButtonClick(CHARACTER_BUTTON_RIGHT) end)
@@ -1650,10 +1667,13 @@ function GetErDone:createTestInGameList()
 	if frameManager["f"] ~= nil then
 		if frameManager["f"]:IsShown() then
 			frameManager["f"]:Hide()
+			self.db.global.options.showui = false
 			return
 		end
 	end
-	self:redrawUi()
+	if self.db.global.options.showui then
+		self:redrawUi()
+	end
 end
 
 function GetErDone:generateIngameCompoundTree(compoundid)
@@ -1666,7 +1686,7 @@ function GetErDone:generateIngameCompoundTree(compoundid)
 			local displayChildren = self.db.global.compounds[child_compound_id].displayChildren
 			local fontType = displayChildren and "GameFontNormal" or "GameFontWhite"
 			local tempString = frameManager["f"]:CreateFontString(child_compound_id, "ARTWORK", fontType)
-			tempString:SetText(self:getIndent(self:compoundNumParents(child_compound_id)) .. self.db.global.compounds[child_compound_id].name)
+			tempString:SetText(self:createUiCompoundText(child_compound_id, character))
 			if displayChildren then
 				tempString:SetPoint("BOTTOM", frameManager["previousString"], 0, -20, 0)
 				tempString:SetHeight(20)
@@ -1694,7 +1714,7 @@ function GetErDone:generateIngameCompoundTree(compoundid)
 				button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 				button:SetFrameStrata("MEDIUM")
 				button:SetScript("OnClick", function(a, event, b) GetErDone:handleUiButtonClick(event, child_compound_id) end)
-				button:SetAlpha(0.5)
+				button:SetAlpha(0.2)
 				button:Enable()
 
 
@@ -1720,14 +1740,39 @@ function GetErDone:generateIngameCompoundTree(compoundid)
 	end
 end
 
-function GetErDone:createUiTrackableText(child_compound_id, id, type, character)
+function GetErDone:createUiTrackableText(parent_compound_id, id, type, character)
 	local completionText = ""
 	local trackable = self.db.global.trackables[id][type]
 
 	if trackable.completionQuantity > 1 then
 		completionText = string.format(" (%i/%i)", trackable.characters[character], trackable.completionQuantity)
 	end
-	return self:getIndent(self:compoundNumParents(child_compound_id) + 1) .. trackable.name .. completionText
+	return self:getIndent(self:compoundNumParents(parent_compound_id) + 1) .. trackable.name .. completionText
+end
+
+function GetErDone:createUiCompoundText(compound_id, character)
+	local completionText = ""
+	local compound = self.db.global.compounds[compound_id]
+
+	if compound.childCompletionQuantity > 1 then
+		local numberCompleted = 0
+		for k, child in pairs(compound.comprisedOf) do
+			local id, type
+			id = child
+			if not self:isCompoundId(child) then
+				id = child.id
+				type = child.type
+			end
+
+			if self:IsComplete(id, type, character) then
+				numberCompleted = numberCompleted + 1
+			end
+		end
+
+		completionText = string.format(" (%i/%i)", numberCompleted, compound.childCompletionQuantity)
+	end
+
+	return self:getIndent(self:compoundNumParents(compound_id)) .. compound.name .. completionText
 end
 
 function GetErDone:updateUI()
