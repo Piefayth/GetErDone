@@ -1581,7 +1581,7 @@ function GetErDone:redrawUi()
 	local closeButton = CreateFrame("Button", "ui_close_button", f)
 	closeButton:SetHeight(13)
 	closeButton:SetWidth(13)
-	closeButton:SetPoint("TOPRIGHT", 5, 0) -- shuffle button to the left so it's on top of the text
+	closeButton:SetPoint("TOPRIGHT", -1, 0) -- shuffle button to the left so it's on top of the text
     closeButton:SetNormalTexture("Interface\\Addons\\GetErDone\\textures\\close.tga", "BLEND")
    	closeButton:SetHighlightTexture("Interface\\Addons\\GetErDone\\textures\\close_highlight.tga", "BLEND")
    	closeButton:SetPushedTexture("Interface\\Addons\\GetErDone\\textures\\close_highlight.tga", "BLEND")
@@ -1603,7 +1603,7 @@ function GetErDone:redrawUi()
 	frameManager["currentCharacterDisplay"] = currentCharacterDisplay
 
 	local leftButton = CreateFrame("Button", "ui_left_button", f)
-	leftButton:SetPoint("TOPLEFT", -50, -25) -- shuffle button to the left so it's on top of the text
+	leftButton:SetPoint("TOPLEFT", -40, -25) -- shuffle button to the left so it's on top of the text
     leftButton:SetNormalTexture("Interface\\Addons\\GetErDone\\textures\\left.tga", "BLEND")
    	leftButton:SetHighlightTexture("Interface\\Addons\\GetErDone\\textures\\left_highlight.tga", "BLEND")
    	leftButton:SetPushedTexture("Interface\\Addons\\GetErDone\\textures\\left_highlight.tga", "BLEND")
@@ -1615,7 +1615,7 @@ function GetErDone:redrawUi()
 	leftButton:Enable()
 
 	local rightButton = CreateFrame("Button", "ui_right_button", f)
-	rightButton:SetPoint("TOPRIGHT", 0, -25) -- shuffle button to the left so it's on top of the text
+	rightButton:SetPoint("TOPRIGHT", -1, -25) -- shuffle button to the left so it's on top of the text
     rightButton:SetNormalTexture("Interface\\Addons\\GetErDone\\textures\\right.tga", "BLEND")
    	rightButton:SetHighlightTexture("Interface\\Addons\\GetErDone\\textures\\right_highlight.tga", "BLEND")
    	rightButton:SetPushedTexture("Interface\\Addons\\GetErDone\\textures\\right_highlight.tga", "BLEND")
