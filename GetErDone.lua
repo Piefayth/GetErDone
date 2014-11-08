@@ -1305,6 +1305,7 @@ function GetErDone:createIngameList()
     			self.db.global.options.optCompound = self.db.global.options.treeMouseover
     			widgetManager["compoundSelectionLabel"]:SetText("Current Group: " .. self.db.global.compounds[self.db.global.options.optCompound].name)
     			widgetManager["deleteCompoundButton"]:SetDisabled(false)
+    			if self.db.global.options.optCompound == "top_level" then widgetManager["deleteCompoundButton"]:SetDisabled(true) end
     			self:clearTrackableFields()
 			elseif string.find(self.db.global.options.treeMouseover, ':') then
 				local id, type = self:fromMergedId(self.db.global.options.treeMouseover)
