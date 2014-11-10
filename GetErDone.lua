@@ -19,6 +19,7 @@ local events = 	{
 	{ ["event"] = "QUEST_TURNED_IN", ["callback"] = "handleEventQuest" },
 	{ ["event"] = "QUEST_COMPLETE", ["callback"] = "handleEventQuest" },
 	{ ["event"] = "UNIT_SPELLCAST_SUCCEEDED", ["callback"] = "handleEventSpell" },
+	{ ["event"] = "COMBAT_LOG_EVENT_UNFILTERED", ["callback"] = "handleEventCombatLog" },
 }
 
 options = {
@@ -374,8 +375,8 @@ function GetErDone:handleEventMonster(event)
 			local mobSet = self:createSet(self:getSpawnUidIdPairs(mobList))
 			for k, v in pairs(mobSet) do
 				local id, type = self:fromMergedId(v)
-				if type == TYPE_VEHICLE then
-					type = TYPE_MONSTER
+				if type == TYPE_MONSTER or type == TYPE_VEHICLE then
+					return
 				end
 				self:checkEvent(id, type)
 			end
@@ -394,6 +395,26 @@ function GetErDone:handleEventSpell(event, ...)
 		end
 	end
 end
+
+local COMBATLOG_OBJECT_AFFILIATION_MINE = _G.COMBATLOG_OBJECT_AFFILIATION_MINE
+local COMBATLOG_OBJECT_AFFILIATION_PARTY = _G.COMBATLOG_OBJECT_AFFILIATION_PARTY
+local COMBATLOG_OBJECT_AFFILIATION_RAID = _G.COMBATLOG_OBJECT_AFFILIATION_RAID
+local bit_band = _G.bit.band
+
+function GetErDone:handleEventCombatLog(event, _, _, eventType, _, srcGuid, _, srcFlags, _, dstGuid, ...)
+	if eventType == "UNIT_DIED" then
+		local unitType, npcId, _ = self:getNpcId(dstGuid)
+		if self.db.global.trackables[npcId] ~= nil and self.db.global.trackables[npcId][unitType] ~= nil then
+			if bit_band(srcFlags, COMBATLOG_OBJECT_AFFILIATION_MINE) or bit_band(srcFlags, COMBATLOG_OBJECT_AFFILIATION_PARTY) or bit_band(srcFlags, COMBATLOG_OBJECT_AFFILIATION_RAID) then
+				if unitType == TYPE_VEHICLE then
+					unitType = TYPE_MONSTER
+				end
+				self:checkEvent(npcId, unitType)
+			end
+		end
+	end
+end
+
 
 function GetErDone:handleEventItem(event)
 	-- nil
