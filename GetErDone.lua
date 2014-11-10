@@ -223,6 +223,10 @@ end
 
 function GetErDone:AddTrackable(id, type, name, owner, frequency, characters, quantity)
 	if id == 0 or id == "" then error("AddTrackable: null or empty id") end
+	if self.db.global.trackables[id] ~= nil and self.db.global.trackables[id][type] ~= nil then
+		print("GetErDone: attempted to add duplicate trackable. Operation cancelled.")
+		return
+	end
 
 	self:ensureTrackable(id)
 	self.db.global.trackables[id][type] = {
