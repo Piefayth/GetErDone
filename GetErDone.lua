@@ -247,6 +247,11 @@ function GetErDone:AddTrackable(id, type, name, owner, frequency, characters, qu
 		print("GetErDone: trackable updated. Please ensure this was the intended operation.")
 	end
 
+	if self.db.global.trackables[id][type].ownedBy ~= owner then
+		print("GetErDone: attempted to change owner of a trackable. Disallowed operation; cancelling.")
+		return
+	end
+
 	self:ensureTrackable(id)
 	self.db.global.trackables[id][type] = {
 			["active"] = true,
