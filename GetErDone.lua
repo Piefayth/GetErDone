@@ -25,54 +25,47 @@ local events = 	{
 options = {
 	name = "Get Er Done",
 	type = 'group',
+	cmdInline = true,
 	args = {
-		general = {
-			order = 1,
-			type = "group",
-			name = "",
-			cmdInline = true,
-			args = {
-					debug = {
-						order = 50,
-						type = "execute",
-						name = "toggle debug",
-						desc = "",
-						func = function() 
-							print("debug disabled")
-							debugMode = false --TODO change to true 
-						end,
-						hidden = true,
-					},
-					options = {
-						order = 98,
-						type = "execute",
-						name = "options",
-						desc = "",
-						func = function() GetErDone:createIngameList() end,
-						hidden = true,
-					},
-					testtreechar = {
-						order = 98,
-						type = "execute",
-						name = "testtreechar",
-						desc = "",
-						func = function() GetErDone:createIngameListChar() end,
-						hidden = true,
-					},
-					ui = {
-						order = 1000,
-						type = "execute",
-						name = "ui",
-						desc = "",
-						func = function() 
-							GetErDone.db.global.options.showui = true
-							GetErDone:createTestInGameList()
-						end,
-					},
-				},
-			},
+		debug = {
+			order = 50,
+			type = "execute",
+			name = "toggle debug",
+			desc = "",
+			func = function() 
+				print("debug disabled")
+				debugMode = false --TODO change to true 
+			end,
+			hidden = true,
+		},
+		options = {
+			order = 98,
+			type = "execute",
+			name = "options",
+			desc = "Options Menu",
+			func = function() GetErDone:createIngameList() end,
+			hidden = false,
+		},
+		testtreechar = {
+			order = 98,
+			type = "execute",
+			name = "testtreechar",
+			desc = "",
+			func = function() GetErDone:createIngameListChar() end,
+			hidden = true,
+		},
+		ui = {
+			order = 1000,
+			type = "execute",
+			name = "ui",
+			desc = "Show/Hide the UI",
+			func = function() 
+				GetErDone.db.global.options.showui = true
+				GetErDone:createTestInGameList()
+			end,
 		},
 	}
+}
 
 
 TYPE_MONSTER = "Creature"
