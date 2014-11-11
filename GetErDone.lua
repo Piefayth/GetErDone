@@ -172,19 +172,39 @@ function GetErDone:addCompound()
 end
 
 
-function GetErDone:prepareCharacters(characters)
-	local chars = {}
-	if type(characters) ~= "table" then return { [characters] = 0 } end
-	if characters == CHARACTERS_ALL then
-		for name, v in pairs(self.db.global.characters) do
-			chars[name] = 0
+function GetErDone:prepareCharacters(id, trackable_type, characters)
+	if self.db.global.trackables[id][type] == nil then
+		-- adding fresh
+		local chars = {}
+		if type(characters) ~= "table" then return { [characters] = 0 } end
+		if characters == CHARACTERS_ALL then
+			for name, v in pairs(self.db.global.characters) do
+				chars[name] = 0
+			end
+		else
+			for name, v in pairs(characters) do
+				chars[name] = 0
+			end
 		end
+		return chars
 	else
-		for name, v in pairs(characters) do
-			chars[name] = 0
+		local chars = self.db.global.trackables[id][trackable_type].characters
+		if type(characters) ~= "table" then return { [characters] = 0 } end
+		if characters == CHARACTERS_ALL then
+			for name, v in pairs(self.db.global.characters) do
+				if chars[name] == nil then
+					chars[name] = 0
+				end
+			end
+		else
+			for name, v in pairs(characters) do
+				if chars[name] == nil then
+					chars[name] = 0
+				end
+			end
 		end
+		return chars
 	end
-	return chars
 end
 
 function GetErDone:isCompoundId(id)
@@ -224,8 +244,7 @@ end
 function GetErDone:AddTrackable(id, type, name, owner, frequency, characters, quantity)
 	if id == 0 or id == "" then error("AddTrackable: null or empty id") end
 	if self.db.global.trackables[id] ~= nil and self.db.global.trackables[id][type] ~= nil then
-		print("GetErDone: attempted to add duplicate trackable. Operation cancelled.")
-		return
+		print("GetErDone: trackable updated. Please ensure this was the intended operation.")
 	end
 
 	self:ensureTrackable(id)
@@ -235,7 +254,7 @@ function GetErDone:AddTrackable(id, type, name, owner, frequency, characters, qu
 			["ownedBy"] = owner,
 			["frequency"] = frequency,
 			["reset"] = self:NextReset(frequency, self.db.global.region),
-			["characters"] = self:prepareCharacters(characters),
+			["characters"] = self:prepareCharacters(id, type, characters),
 			["completionQuantity"] = tonumber(quantity)
     }
 
@@ -327,7 +346,8 @@ function GetErDone:OnEnable()
 	if self.db.global.hiddenCompounds == nil then self.db.global.hiddenCompounds = {} end
 	
 
-
+	self:removeUnwantedChildren()
+	self:removeOrphans()
 	self:generateUiCharacterList()
 	self:registerHandlers()
 	self:LoadDefaults()
@@ -337,6 +357,54 @@ function GetErDone:OnEnable()
 	self:createTestInGameList()
 end
 
+function GetErDone:removeOrphans()
+	local removed = false
+	local compounds = self.db.global.compounds
+	for compound_id, compound in pairs(compounds) do
+		if compound_id ~= COMPOUND_TREE_ROOT_ELEMENT then
+			if compound.ownedBy == nil or compound.ownedBy == "" or compounds[compound.ownedBy] == nil then
+				self.db.global.compounds[compound_id] = nil
+				self:debug("removed " .. compound_id)
+				removed = true
+			end
+		end
+	end
+
+	local trackables = self.db.global.trackables
+	for id, typeTable in pairs(trackables) do
+		for type, trackable in pairs(typeTable) do
+			if trackable.ownedBy == nil or trackable.ownedBy == "" or compounds[trackable.ownedBy] == nil then
+				self.db.global.trackables[id][type] = nil
+				self:debug("removed " .. id .. ":" .. type)
+				removed = true
+			end
+		end
+	end
+
+	if removed then
+		self:debug("remove orphans recursing")
+		self:removeOrphans()
+	end
+end
+
+function GetErDone:removeUnwantedChildren()
+	local compounds = self.db.global.compounds
+	for compound_id, compound in pairs(compounds) do
+		if type(compound.comprisedOf) == "table" then
+			for k, child_id in ipairs(compound.comprisedOf) do
+				if self:isCompoundId(child_id) then
+					if compounds[child_id] == nil then
+						table.remove(self.db.global.compounds[compound_id].comprisedOf, k)
+					end
+				else
+					if self.db.global.trackables[child_id.id] == nil or self.db.global.trackables[child_id.id][child_id.type] == nil then
+						table.remove(self.db.global.compounds[compound_id].comprisedOf, k)
+					end
+				end
+			end
+		end
+	end
+end
 
 function GetErDone:OnUpdate()
 end
@@ -421,17 +489,19 @@ end
 
 
 function GetErDone:handleEventItem(event)
-	-- nil
+	-- handled by handleEventMonster
 end
 
-local questCompleteList = {}
-
 function GetErDone:handleEventQuest(event)
-	if event == "QUEST_COMPLETE" then
-		local questCompleteList = {} -- blank out the current quests that are to be completed
-		local quests = { GetGossipAvailableQuests() }
-	end
-	-- TODO finish lol
+    if event == "QUEST_TURNED_IN" then
+        for id, typeTable in pairs(self.db.global.trackables) do
+            if self.db.global.trackables[id][TYPE_QUEST] ~= nil then
+            	if IsQuestFlaggedCompleted(k) then
+            		self:checkEvent(id, TYPE_QUEST)
+            	end
+            end
+        end
+    end
 end
 
 function GetErDone:checkEvent(id, type)
@@ -1220,6 +1290,21 @@ function GetErDone:buttonCheck(t)
 			widgetManager["addTrackableButton"]:SetDisabled(false)
 		end
 	end
+	self:tryUpdateTrackableCharacterDropdown()
+end
+
+function GetErDone:tryUpdateTrackableCharacterDropdown()
+	if self.db.global.trackables[self.db.global.options.trackableID] ~= nil and self.db.global.trackables[self.db.global.options.trackableID][self.db.global.options.typechoice] ~= nil then
+		local dropDownTrackable = self.db.global.trackables[self.db.global.options.trackableID][self.db.global.options.typechoice]
+		charDropdownList = {}
+		for k, v in pairs(self:getCharacters()) do
+			frameManager.trackableCharacter:SetItemValue(k, false)
+		end
+		for dropDownTrackableCharacter, v in pairs(dropDownTrackable.characters) do
+			charDropdownList[dropDownTrackableCharacter] = dropDownTrackableCharacter
+			frameManager.trackableCharacter:SetItemValue(dropDownTrackableCharacter, true)
+		end
+	end
 end
 
 function GetErDone:clickTrackableLabel(widget, trackableID)
@@ -1338,6 +1423,7 @@ function GetErDone:createIngameList()
     			widgetManager["deleteCompoundButton"]:SetDisabled(false)
     			if self.db.global.options.optCompound == "top_level" then widgetManager["deleteCompoundButton"]:SetDisabled(true) end
     			self:clearTrackableFields()
+    			self:buttonCheck("compound")
 			elseif string.find(self.db.global.options.treeMouseover, ':') then
 				local id, type = self:fromMergedId(self.db.global.options.treeMouseover)
 				self.db.global.options.optTrackable = {["id"] = id, ["type"] = type}
@@ -1361,6 +1447,7 @@ function GetErDone:createIngameList()
 					self:populateTrackableFields(id, type)
 				end)
 				self:populateTrackableFields(id, type)
+				self:buttonCheck("trackable")
 			end
 		end)
 
@@ -1528,7 +1615,7 @@ function GetErDone:createIngameList()
 	end)
 	trackableCharacter:SetLabel("Character")
 	trackableCharacter:SetMultiselect(true)
-	trackableCharacter:SetValue(self.db.global.options.character)
+	frameManager["trackableCharacter"] = trackableCharacter
 
 	trackableQuantity:SetCallback("OnEnterPressed", function(widget, event, text) self:getTrackableQuantity(widget, event, text) end)
 	trackableQuantity:SetLabel("Quantity")
