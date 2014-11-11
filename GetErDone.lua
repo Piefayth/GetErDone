@@ -1,9 +1,3 @@
--- roadmap goals
--- 
--- lock button
--- QUEST HANDLING IN ITS ENTIRITY
--- 
-
 GetErDone = LibStub("AceAddon-3.0"):NewAddon("GetErDone", "AceEvent-3.0", "AceConsole-3.0")
 
 local AceConfig = LibStub("AceConfig-3.0")
@@ -34,7 +28,7 @@ options = {
 			desc = "",
 			func = function() 
 				print("debug disabled")
-				debugMode = false --TODO change to true 
+				debugMode = true 
 			end,
 			hidden = true,
 		},
@@ -102,7 +96,7 @@ CHARACTER_BUTTON_LEFT = 1
 CHARACTER_BUTTON_RIGHT = 2
 COMPOUND_TREE_ROOT_ELEMENT = "top_level"
 UI_CLOSED_STRING = "Get Er Done UI closed. To show again, type\n/ged ui"
-debugMode = true -- TODO change to false
+debugMode = false 
 
 
 
@@ -413,8 +407,6 @@ function GetErDone:OnUpdate()
 end
 
 function GetErDone:LoadDefaults()
-	--if debug then return end TODO uncomment for release
-
 	if self.db.global.defaultsloaded == nil then
 		self.db.global.compounds = defaults.compounds
 		self.db.global.trackables = defaults.trackables
