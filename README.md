@@ -3,6 +3,13 @@ GetErDone
 
 WoW Progress Tracking Addon
 
+Version 0.1
+Release
+
+Slash commands
+
+/ged options
+/ged ui
+
 TODO:
-- Implement groups
-- Find account region (currently set to be US for everyone)
+SharedMedia Support
