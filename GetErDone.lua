@@ -247,7 +247,7 @@ function GetErDone:AddTrackable(id, type, name, owner, frequency, characters, qu
 		print("GetErDone: trackable updated. Please ensure this was the intended operation.")
 	end
 
-	if self.db.global.trackables[id][type].ownedBy ~= owner then
+	if self.db.global.trackables[id] ~= nil and self.db.global.trackables[id][type] ~= nil and self.db.global.trackables[id][type].ownedBy ~= owner then
 		print("GetErDone: attempted to change owner of a trackable. Disallowed operation; cancelling.")
 		return
 	end
@@ -383,6 +383,11 @@ function GetErDone:removeOrphans()
 				self:debug("removed " .. id .. ":" .. type)
 				removed = true
 			end
+		end
+		if self:IsNullOrEmpty(self.db.global.trackables[id]) then
+			self.db.global.trackables[id] = nil
+			removed = true
+			self:debug("removed empty trackable " .. id)
 		end
 	end
 
@@ -1432,6 +1437,8 @@ function GetErDone:createIngameList()
 			elseif string.find(self.db.global.options.treeMouseover, ':') then
 				local id, type = self:fromMergedId(self.db.global.options.treeMouseover)
 				self.db.global.options.optTrackable = {["id"] = id, ["type"] = type}
+				widgetManager["compoundSelectionLabel"]:SetText("Current Group: " .. self.db.global.compounds[self.db.global.trackables[id][type].ownedBy].name)
+				self.db.global.options.optCompound = self.db.global.trackables[id][type].ownedBy
 				widgetManager["trackableSelectionLabel"]:SetText("Current Item: " .. self.db.global.trackables[id][type].name)
 				widgetManager["deleteTrackableButton"]:SetDisabled(false)
 				widgetManager["addTrackableButton"]:SetText("Update Item")
