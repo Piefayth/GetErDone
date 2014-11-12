@@ -499,7 +499,7 @@ function GetErDone:handleEventQuest(event)
     if event == "QUEST_TURNED_IN" then
         for id, typeTable in pairs(self.db.global.trackables) do
             if self.db.global.trackables[id][TYPE_QUEST] ~= nil then
-            	if IsQuestFlaggedCompleted(k) then
+            	if IsQuestFlaggedCompleted(id) then
             		self:checkEvent(id, TYPE_QUEST)
             	end
             end
@@ -1513,6 +1513,7 @@ function GetErDone:createIngameList()
 			self.db.global.options.compoundquantity = ""
 			self.db.global.options.newCompoundName = ""
 			widgetManager["buttonCompound"]:SetDisabled(true)
+
 			mainTree:SetTree(self:getAceTree(false))
 		end
 	end)
@@ -1611,9 +1612,18 @@ function GetErDone:createIngameList()
 	trackableFrequency:SetValue(self.db.global.options.frequency)
 
 	trackableCharacter:SetList(self:getCharacters())
-	trackableCharacter:SetCallback("OnValueChanged", function(widget, event, key, checked) 
-		if checked then
+	trackableCharacter:SetCallback("OnValueChanged", function(widget, event, key, checked)
+
+		if checked and key == "all" then
+			for k, v in pairs(self.db.global.characters) do
+				trackableCharacter:SetItemValue(v["name"]..v["server"], true)
+			end
+		elseif checked then
 			charDropdownList[key] = key
+		elseif key == "all" then
+			for k, v in pairs(self.db.global.characters) do
+				trackableCharacter:SetItemValue(v["name"]..v["server"], false)
+			end
 		else
 			charDropdownList[key] = nil
 		end
@@ -1713,7 +1723,7 @@ function GetErDone:redrawUi()
 	f:EnableMouse(true)
 	f:SetHitRectInsets(0,0,0,975)
 	f:RegisterForDrag("LeftButton")
-	f:SetClampedToScreen(true) -- don't let it be dragged off the screen
+	f:SetClampedToScreen(false) -- don't let it be dragged off the screen
 	f:SetScript("OnDragStart", f.StartMoving)
 	f:SetScript("OnDragStop", function() GetErDone:saveUiPosition() end)
 	if self.db.global.options.uipositionx ~= nil and self.db.global.options.uipositiony ~= nil and self.db.global.options.uipositionpoint ~= nil then
