@@ -1353,7 +1353,7 @@ function GetErDone:setTrackableFrequencyDropdown(widget)
 	GetErDone:buttonCheck("trackable")
 end
 
-function GetErDone:getTrackableCharacterDropdown(widget, event, key)
+--[[function GetErDone:getTrackableCharacterDropdown(widget, event, key)
 	self.db.global.options.character = key
 	self:setTrackableCharacterDropdown(widget)
 end
@@ -1361,7 +1361,7 @@ end
 function GetErDone:setTrackableCharacterDropdown(widget)
 	widget:SetValue(self.db.global.options.character)
 	GetErDone:buttonCheck("trackable")
-end
+end]]--
 
 function GetErDone:submitIDEdit(widget, event, text)
 	if string.match(text, '%d') then
@@ -1617,16 +1617,23 @@ function GetErDone:createIngameList()
 		if checked and key == "all" then
 			for k, v in pairs(self.db.global.characters) do
 				trackableCharacter:SetItemValue(v["name"]..v["server"], true)
+				charDropdownList[k] = k
 			end
 		elseif checked then
 			charDropdownList[key] = key
 		elseif key == "all" then
 			for k, v in pairs(self.db.global.characters) do
 				trackableCharacter:SetItemValue(v["name"]..v["server"], false)
+				charDropdownList[k] = nil
 			end
 		else
 			charDropdownList[key] = nil
 		end
+
+		if self.db.global.options.optTrackable ~= nil then
+			addTrackableButton:SetDisabled(false)
+		end
+
 	end)
 	trackableCharacter:SetLabel("Character")
 	trackableCharacter:SetMultiselect(true)
@@ -1820,6 +1827,22 @@ function GetErDone:createTestInGameList()
 	end
 end
 
+function GetErDone:getTrimmedCharacterList()
+	result = {}
+	for k, v in pairs(self.db.global.compounds) do
+		for kk, vv in pairs(v["comprisedOf"]) do
+			if not self:isCompoundId(vv) then
+				for nameserver, quantcomplete in pairs(self.db.global.trackables[vv["id"]][vv["type"]].characters) do
+					if not self:contains(result, self.db.global.characters[nameserver]) then
+						table.insert(result, self.db.global.characters[nameserver])
+					end
+				end
+			end
+		end
+	end
+	return result
+end
+
 function GetErDone:generateIngameCompoundTree(compoundid)
 	if frameManager.f == nil then return end -- if we're calling before we've loaded the ui for the first time - on login, usually
 	local children = self:getCompoundChildren(compoundid)
@@ -1966,7 +1989,7 @@ function GetErDone:handleUiCharacterButtonClick(direction, recurseIfThisIsNil)
 	local found = false -- flag to find when we've got the current name
 	local currentName = self.db.global.options.uichararacterlistcurrent
 	if direction == CHARACTER_BUTTON_RIGHT  then
-		for i, nameTable in ipairs(self.db.global.options.uicharacterlist) do
+		for i, nameTable in ipairs(self:getTrimmedCharacterList()) do
 
 			if found == true or recurseIfThisIsNil ~= nil then -- if we're recursing, we know that we've found a name and want to pick the next available one
 				if not self:isNameIgnored(nameTable.name .. nameTable.server) then
@@ -1983,7 +2006,7 @@ function GetErDone:handleUiCharacterButtonClick(direction, recurseIfThisIsNil)
 		-- if we need to go back to the start
 		self.db.global.options.uichararacterlistcurrent = self.db.global.options.uicharacterlist[1] -- set the current name to the first one in the list
 	elseif direction == CHARACTER_BUTTON_LEFT then
-		local list = self.db.global.options.uicharacterlist
+		local list = self:getTrimmedCharacterList()
 		for i = #(list), 1, -1 do
 			local nameTable = list[i]
 
